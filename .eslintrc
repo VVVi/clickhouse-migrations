@@ -2,6 +2,6 @@
   "parser": "@typescript-eslint/parser",
   "extends": ["prettier"],
   "rules": {
-    "no-console": "off"    
+    "no-console": "off"
   }
 }
