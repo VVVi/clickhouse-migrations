@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,    
+
+    "declaration": true,
+    "outDir": "./lib"   
+  },
+  "include": ["src", "types"],
+  "exclude": ["node_modules", "**/__tests__/*"]
+}
