@@ -15,7 +15,7 @@ Create a directory, where migrations will be stored. It will be used as the valu
 
 In the directory, create migrations - which should be named like: `1_`some_text`.sql`, `2_`other_text`.sql`, ... `10_`more_test`.sql`. What is important here: migration versions followed by underscore - `1_`, `2_`, ...`10_`..., and file extension `.sql`. Any text can follow by version number. The version number should increase for every next migration.
 
-For migrations' content should be used correct SQL ClickHouse queries. A few queries can be used in one migration file. Every query should end with `;`. The queries could be idempotent - for example: `CREATE TABLE IF NOT EXISTS table ...;` Comments should start with `--- `.
+For migrations' content should be used correct SQL ClickHouse queries. A few queries can be used in one migration file. Every query should end with `;`. The queries could be idempotent - for example: `CREATE TABLE IF NOT EXISTS table ...;` For adding comments should be used `--`, `# `, `#!` at the beginning of the line.
 
 ```
   Usage
