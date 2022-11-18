@@ -1,4 +1,4 @@
-import { setDefaultResultOrder } from "dns";
+import { setDefaultResultOrder } from 'dns';
 
 const { createClient } = require('@clickhouse/client');
 const { Command } = require('commander');
@@ -249,19 +249,19 @@ const migration = async (
 export const migrate = () => {
   const program = new Command();
 
-  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('1.0.0');
+  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('0.1.4');
 
   program
     .command('migrate')
     .description('apply migrations.')
-    .requiredOption('--host <name>', 'clickhouse hostname in format http://clickhouse')
-    .requiredOption('--port <number>', 'port')
-    .requiredOption('--user <name>', 'username')
-    .requiredOption('--pass <password>', 'password')
-    .requiredOption('--db-name <dbname>', 'database name')
-    .requiredOption('--migrations-home <dir>', 'migrations directory')
+    .requiredOption('--host <name>', 'clickhouse hostname in format http://clickhouse', process.env.CH_MIGRATIONS_HOST)
+    .requiredOption('--port <number>', 'port', process.env.CH_MIGRATIONS_PORT)
+    .requiredOption('--user <name>', 'username', process.env.CH_MIGRATIONS_USER)
+    .requiredOption('--password <password>', 'password', process.env.CH_MIGRATIONS_PASSWORD)
+    .requiredOption('--db <name>', 'database name', process.env.CH_MIGRATIONS_DB)
+    .requiredOption('--migrations-home <dir>', 'migrations directory', process.env.CH_MIGRATIONS_HOME)
     .action(async (options: CliParameters) => {
-      await migration(options.migrationsHome, options.host, options.port, options.user, options.pass, options.dbName);
+      await migration(options.migrationsHome, options.host, options.port, options.user, options.password, options.db);
     });
 
   program.parse();

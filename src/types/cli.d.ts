@@ -29,6 +29,6 @@ type CliParameters = {
   host: string;
   port: string;
   user: string;
-  pass: string;
-  dbName: string;
+  password: string;
+  db: string;
 };

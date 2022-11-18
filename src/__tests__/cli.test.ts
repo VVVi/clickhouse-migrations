@@ -19,7 +19,7 @@ describe('Parameter tests', () => {
   it('No migration directory', async () => {
     let result: any = await new Promise((resolve) => {
       const command =
-        "node ./lib/cli.js  migrate --host http://localhost --port 8123 --user default --pass '' --db-name analytics --migrations-home /app/clickhouse/migrations";
+        "node ./lib/cli.js  migrate --host http://localhost --port 8123 --user default --password '' --db analytics --migrations-home /app/clickhouse/migrations";
 
       exec(command, '.', (error: any, stdout: any, stderr: any) => {
         resolve({
