@@ -1,22 +1,19 @@
 /// <reference types="node" />
 
 type ClickhouseDbParams = {
-  url: String;
-  port: Number;
-  database?: String;
-  debug: Boolean;
-  basicAuth: {
-    username: String;
-    password: String;
-  };
-  isUseGzip: Boolean;
-  format: 'json';
-  raw: Boolean;
-  config: {
-    session_timeout: Number;
-    output_format_json_quote_64bit_integers: Number;
-    enable_http_compression: Number;
-  };
+  host: string;
+  connect_timeout?: number;
+  request_timeout?: number;
+  max_open_connections?: number;
+  compression?: { response?: boolean; request?: boolean };
+  username: string;
+  password: string;
+  application?: string;
+  database?: string;
+  clickhouse_settings?: ClickHouseSettings;
+  log?: { enable?: boolean; LoggerClass?: Logger };
+  tls?: { ca_cert: Buffer; cert?: Buffer; key?: Buffer };
+  session_id?: string;
 };
 
 type MigrationBase = {
@@ -27,7 +24,6 @@ type MigrationBase = {
 type CliParameters = {
   migrationsHome: string;
   host: string;
-  port: string;
   user: string;
   password: string;
   db: string;

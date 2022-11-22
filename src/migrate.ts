@@ -24,23 +24,12 @@ const log = (type: 'info' | 'error' = 'info', message: string, error?: string) =
   }
 };
 
-const connect = (host: string, port: string, username: string, password: string, db_name?: string): any => {
+const connect = (host: string, username: string, password: string, db_name?: string): any => {
   const db_params: ClickhouseDbParams = {
-    url: host,
-    port: parseInt(port),
-    debug: false,
-    basicAuth: {
-      username: username,
-      password: password,
-    },
-    isUseGzip: false,
-    format: 'json',
-    raw: false,
-    config: {
-      session_timeout: 60,
-      output_format_json_quote_64bit_integers: 0,
-      enable_http_compression: 0,
-    },
+    host,
+    username,
+    password,
+    application: 'clickhouse-migrations',
   };
 
   if (db_name) {
@@ -50,14 +39,8 @@ const connect = (host: string, port: string, username: string, password: string,
   return new createClient(db_params);
 };
 
-const create_db = async (
-  host: string,
-  port: string,
-  username: string,
-  password: string,
-  db_name: string,
-): Promise<void> => {
-  const client = connect(host, port, username, password);
+const create_db = async (host: string, username: string, password: string, db_name: string): Promise<void> => {
+  const client = connect(host, username, password);
 
   // TODO: provided engine type over parameters
   const q: string = `CREATE DATABASE IF NOT EXISTS ${db_name} ENGINE = Atomic`;
@@ -226,16 +209,15 @@ const apply_migrations = async (client: any, migrations: MigrationBase[], migrat
 const migration = async (
   migrations_home: string,
   host: string,
-  port: string,
   username: string,
   password: string,
   db_name: string,
 ): Promise<void> => {
   const migrations = get_migrations(migrations_home);
 
-  await create_db(host, port, username, password, db_name);
+  await create_db(host, username, password, db_name);
 
-  const client = connect(host, port, username, password, db_name);
+  const client = connect(host, username, password, db_name);
 
   await init_migration_table(client);
 
@@ -252,14 +234,13 @@ export const migrate = () => {
   program
     .command('migrate')
     .description('Apply migrations.')
-    .requiredOption('--host <name>', 'Clickhouse hostname (ex. https://clickhouse)', process.env.CH_MIGRATIONS_HOST)
-    .requiredOption('--port <number>', 'Port', process.env.CH_MIGRATIONS_PORT)
+    .requiredOption('--host <name>', 'Clickhouse hostname (ex: http://clickhouse:8123)', process.env.CH_MIGRATIONS_HOST)
     .requiredOption('--user <name>', 'Username', process.env.CH_MIGRATIONS_USER)
     .requiredOption('--password <password>', 'Password', process.env.CH_MIGRATIONS_PASSWORD)
     .requiredOption('--db <name>', 'Database name', process.env.CH_MIGRATIONS_DB)
     .requiredOption('--migrations-home <dir>', "Migrations' directory", process.env.CH_MIGRATIONS_HOME)
     .action(async (options: CliParameters) => {
-      await migration(options.migrationsHome, options.host, options.port, options.user, options.password, options.db);
+      await migration(options.migrationsHome, options.host, options.user, options.password, options.db);
     });
 
   program.parse();

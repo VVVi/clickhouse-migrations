@@ -22,8 +22,8 @@ For migrations' content should be used correct SQL ClickHouse queries. A few que
     $ clickhouse-migrations migrate <options>
 
   Required options
-      --host=<name>             Clickhouse hostname (ex. https://clickhouse)
-      --port=<number>           Port
+      --host=<name>             Clickhouse hostname 
+                                  (ex. https://clickhouse:8123)
       --user=<name>             Username
       --password=<password>     Password
       --db=<name>               Database name
@@ -32,15 +32,14 @@ For migrations' content should be used correct SQL ClickHouse queries. A few que
   Environment variables
       Instead of options can be used environment variables.
       CH_MIGRATIONS_HOST        Clickhouse hostname (--host)
-      CH_MIGRATIONS_PORT        Port (--port)
       CH_MIGRATIONS_USER        Username (--user)
       CH_MIGRATIONS_PASSWORD    Password (--password)
       CH_MIGRATIONS_DB          Database name (--db)
       CH_MIGRATIONS_HOME        Migrations' directory (--migrations-home)
 
   Examples
-      clickhouse-migrations migrate --host=http://localhost 
-      --port=8123 --user=default --password='' 
-      --db=analytics --migrations-home=/app/clickhouse/migrations
+      clickhouse-migrations migrate --host=http://localhost:8123 
+      --user=default --password='' --db=analytics 
+      --migrations-home=/app/clickhouse/migrations
 
       clickhouse-migrations migrate 

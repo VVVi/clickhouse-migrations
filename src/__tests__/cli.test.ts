@@ -16,8 +16,7 @@ const execute = async (script: string, execOptions: {}) => {
 };
 
 const envVars = {
-  CH_MIGRATIONS_HOST: 'http://localhost',
-  CH_MIGRATIONS_PORT: '8123',
+  CH_MIGRATIONS_HOST: 'http://localhost:8123',
   CH_MIGRATIONS_USER: 'default',
   CH_MIGRATIONS_PASSWORD: '',
   CH_MIGRATIONS_DB: 'analytics',
@@ -37,7 +36,7 @@ describe('Execution tests', () => {
 
   it('No migration directory', async () => {
     const command =
-      "node ./lib/cli.js  migrate --host=http://localhost --port=8123 --user=default --password='' --db=analytics --migrations-home=/app/clickhouse/migrations";
+      "node ./lib/cli.js  migrate --host=http://localhost:8123 --user=default --password='' --db=analytics --migrations-home=/app/clickhouse/migrations";
 
     const result = await execute(command, '.');
 
