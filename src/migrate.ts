@@ -39,7 +39,9 @@ const connect = (host: string, username: string, password: string, db_name?: str
   return new createClient(db_params);
 };
 
-const create_db = async (client: any, db_name: string): Promise<void> => {
+const create_db = async (host: string, username: string, password: string, db_name: string): Promise<void> => {
+  const client = connect(host, username, password);
+
   // TODO: provided engine type over parameters
   const q: string = `CREATE DATABASE IF NOT EXISTS ${db_name} ENGINE = Atomic`;
 
@@ -51,6 +53,8 @@ const create_db = async (client: any, db_name: string): Promise<void> => {
     log('error', `can't create the database ${db_name}.`, e.message);
     process.exit(1);
   }
+
+  await client.close();
 };
 
 const init_migration_table = async (client: any): Promise<void> => {
@@ -211,9 +215,9 @@ const migration = async (
 ): Promise<void> => {
   const migrations = get_migrations(migrations_home);
 
-  const client = connect(host, username, password, db_name);
+  await create_db(host, username, password, db_name);
 
-  await create_db(client, db_name);
+  const client = connect(host, username, password, db_name);
 
   await init_migration_table(client);
 
@@ -225,7 +229,7 @@ const migration = async (
 export const migrate = () => {
   const program = new Command();
 
-  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('0.1.7');
+  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('0.1.8');
 
   program
     .command('migrate')
