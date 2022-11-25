@@ -1,3 +1,5 @@
+import type { ClickHouseClient } from '@clickhouse/client';
+
 const { createClient } = require('@clickhouse/client');
 const { Command } = require('commander');
 const fs = require('fs');
@@ -24,7 +26,7 @@ const log = (type: 'info' | 'error' = 'info', message: string, error?: string) =
   }
 };
 
-const connect = (host: string, username: string, password: string, db_name?: string): any => {
+const connect = (host: string, username: string, password: string, db_name?: string): ClickHouseClient => {
   const db_params: ClickhouseDbParams = {
     host,
     username,
@@ -48,16 +50,19 @@ const create_db = async (host: string, username: string, password: string, db_na
   try {
     await client.exec({
       query: q,
+      clickhouse_settings: {
+        wait_end_of_query: 1,
+      },
     });
-  } catch (e: any) {
-    log('error', `can't create the database ${db_name}.`, e.message);
+  } catch (e: unknown) {
+    log('error', `can't create the database ${db_name}.`, (e as QueryError).message);
     process.exit(1);
   }
 
   await client.close();
 };
 
-const init_migration_table = async (client: any): Promise<void> => {
+const init_migration_table = async (client: ClickHouseClient): Promise<void> => {
   const q: string = `CREATE TABLE IF NOT EXISTS _migrations (
       uid UUID DEFAULT generateUUIDv4(), 
       version UInt32,
@@ -71,9 +76,12 @@ const init_migration_table = async (client: any): Promise<void> => {
   try {
     await client.exec({
       query: q,
+      clickhouse_settings: {
+        wait_end_of_query: 1,
+      },
     });
-  } catch (e: any) {
-    log('error', `can't create the _migrations table.`, e.message);
+  } catch (e: unknown) {
+    log('error', `can't create the _migrations table.`, (e as QueryError).message);
     process.exit(1);
   }
 };
@@ -82,7 +90,7 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
   let files;
   try {
     files = fs.readdirSync(migrations_home);
-  } catch (e) {
+  } catch (e: unknown) {
     log('error', `no migration directory ${migrations_home}. Please create it.`);
     process.exit(1);
   }
@@ -110,22 +118,27 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
   return migrations;
 };
 
-const apply_migrations = async (client: any, migrations: MigrationBase[], migrations_home: string): Promise<void> => {
-  let migration_query_result: string[] = [];
+const apply_migrations = async (
+  client: ClickHouseClient,
+  migrations: MigrationBase[],
+  migrations_home: string,
+): Promise<void> => {
+  let migration_query_result: MigrationsRowData[] = [];
   try {
     const resultSet = await client.query({
       query: `SELECT version, checksum, migration_name FROM _migrations ORDER BY version`,
       format: 'JSONEachRow',
     });
     migration_query_result = await resultSet.json();
-  } catch (e: any) {
-    log('error', `can't select data from the _migrations table.`, e.message);
+  } catch (e: unknown) {
+    log('error', `can't select data from the _migrations table.`, (e as QueryError).message);
     process.exit(1);
   }
 
-  let migrations_applied: any = {};
-  migration_query_result.forEach((row: any) => {
+  let migrations_applied: MigrationsRowData[] = [];
+  migration_query_result.forEach((row: MigrationsRowData) => {
     migrations_applied[row.version] = {
+      version: row.version,
       checksum: row.checksum,
       migration_name: row.migration_name,
     };
@@ -164,14 +177,14 @@ const apply_migrations = async (client: any, migrations: MigrationBase[], migrat
     }
 
     // Extract sql from the migration.
-    var queries = sql_queries(content);
+    const queries = sql_queries(content);
 
     for (const query of queries) {
       try {
         await client.exec({
           query: query,
         });
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (applied_migrations) {
           log('info', `The migration(s) ${applied_migrations} was successfully applied!`);
         }
@@ -179,7 +192,7 @@ const apply_migrations = async (client: any, migrations: MigrationBase[], migrat
         log(
           'error',
           `the migrations ${migration.file} has an error. Please, fix it (be sure that already executed parts of the migration would not be run second time) and re-run migration script.`,
-          e.message,
+          (e as QueryError).message,
         );
         process.exit(1);
       }
@@ -191,8 +204,8 @@ const apply_migrations = async (client: any, migrations: MigrationBase[], migrat
         values: [{ version: migration.version, checksum: checksum, migration_name: migration.file }],
         format: 'JSONEachRow',
       });
-    } catch (e: any) {
-      log('error', `can't insert a data into the table _migrations.`, e.message);
+    } catch (e: unknown) {
+      log('error', `can't insert a data into the table _migrations.`, (e as QueryError).message);
       process.exit(1);
     }
 
@@ -229,7 +242,7 @@ const migration = async (
 export const migrate = () => {
   const program = new Command();
 
-  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('0.1.8');
+  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('0.1.9');
 
   program
     .command('migrate')

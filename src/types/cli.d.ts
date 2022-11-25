@@ -21,6 +21,12 @@ type MigrationBase = {
   file: string;
 };
 
+type MigrationsRowData = {
+  version: number;
+  checksum: string;
+  migration_name: string;
+}
+
 type CliParameters = {
   migrationsHome: string;
   host: string;
@@ -28,3 +34,7 @@ type CliParameters = {
   password: string;
   db: string;
 };
+
+type QueryError = {
+  message: string;
+}
