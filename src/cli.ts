@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { migrate } = require('./migrate');
+import { migrate } from './migrate';
 
 migrate();
 

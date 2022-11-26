@@ -1,9 +1,9 @@
 import { describe, it, expect } from '@jest/globals';
-var exec = require('child_process').exec;
+import exec from 'child_process';
 
-const execute = async (script: string, execOptions: {}) => {
-  const result: { error: string; stdout: string; stderr: string } = await new Promise((resolve) => {
-    exec(script, execOptions, (error: any, stdout: any, stderr: any) => {
+const execute = async (script: string, execOptions: any) => {
+  const result: { error: exec.ExecException | null; stdout: string; stderr: string } = await new Promise((resolve) => {
+    exec.exec(script, execOptions, (error: exec.ExecException | null, stdout: string, stderr: string) => {
       resolve({
         error,
         stdout,

@@ -1,9 +1,8 @@
 import type { ClickHouseClient } from '@clickhouse/client';
-
-const { createClient } = require('@clickhouse/client');
-const { Command } = require('commander');
-const fs = require('fs');
-const crypto = require('crypto');
+import { createClient } from '@clickhouse/client';
+import { Command } from 'commander';
+import fs from 'fs';
+import crypto from 'crypto';
 
 // Extract SQL queries from migrations.
 const sql_queries = (content: string): string[] => {
@@ -38,14 +37,14 @@ const connect = (host: string, username: string, password: string, db_name?: str
     db_params.database = db_name;
   }
 
-  return new createClient(db_params);
+  return createClient(db_params);
 };
 
 const create_db = async (host: string, username: string, password: string, db_name: string): Promise<void> => {
   const client = connect(host, username, password);
 
   // TODO: provided engine type over parameters
-  const q: string = `CREATE DATABASE IF NOT EXISTS ${db_name} ENGINE = Atomic`;
+  const q = `CREATE DATABASE IF NOT EXISTS ${db_name} ENGINE = Atomic`;
 
   try {
     await client.exec({
@@ -63,7 +62,7 @@ const create_db = async (host: string, username: string, password: string, db_na
 };
 
 const init_migration_table = async (client: ClickHouseClient): Promise<void> => {
-  const q: string = `CREATE TABLE IF NOT EXISTS _migrations (
+  const q = `CREATE TABLE IF NOT EXISTS _migrations (
       uid UUID DEFAULT generateUUIDv4(), 
       version UInt32,
       checksum String, 
@@ -135,7 +134,7 @@ const apply_migrations = async (
     process.exit(1);
   }
 
-  let migrations_applied: MigrationsRowData[] = [];
+  const migrations_applied: MigrationsRowData[] = [];
   migration_query_result.forEach((row: MigrationsRowData) => {
     migrations_applied[row.version] = {
       version: row.version,
