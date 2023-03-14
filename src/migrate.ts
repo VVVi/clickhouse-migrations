@@ -4,18 +4,7 @@ import { Command } from 'commander';
 import fs from 'fs';
 import crypto from 'crypto';
 
-// Extract SQL queries from migrations.
-const sql_queries = (content: string): string[] => {
-  const queries = content
-    .replace(/^(--|#!|# ).*(\n|\r\n|\r)$/gm, '')
-    .replace(/(\n|\r\n|\r)/gm, ' ')
-    .replace(/\s+/g, ' ')
-    .split(';')
-    .map((el: string) => el.trim())
-    .filter((el: string) => el.length != 0);
-
-  return queries;
-};
+import { sql_queries, sql_sets } from './sql-parse';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
   if (type === 'info') {
@@ -36,7 +25,6 @@ const connect = (host: string, username: string, password: string, db_name?: str
   if (db_name) {
     db_params.database = db_name;
   }
-
   return createClient(db_params);
 };
 
@@ -97,6 +85,14 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
   const migrations: MigrationBase[] = [];
   files.forEach((file: string) => {
     const version = Number(file.split('_')[0]);
+
+    if (!version) {
+      log(
+        'error',
+        `a migration name should start from number, example: 1_init.sql. Please check, if the migration ${file} is named correctly`,
+      );
+      process.exit(1);
+    }
 
     // Manage only .sql files.
     if (!file.endsWith('.sql')) return;
@@ -177,11 +173,13 @@ const apply_migrations = async (
 
     // Extract sql from the migration.
     const queries = sql_queries(content);
+    const sets = sql_sets(content);
 
     for (const query of queries) {
       try {
         await client.exec({
           query: query,
+          clickhouse_settings: sets,
         });
       } catch (e: unknown) {
         if (applied_migrations) {
@@ -238,10 +236,10 @@ const migration = async (
   await client.close();
 };
 
-export const migrate = () => {
+const migrate = () => {
   const program = new Command();
 
-  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('0.1.9');
+  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('0.1.10');
 
   program
     .command('migrate')
@@ -257,3 +255,5 @@ export const migrate = () => {
 
   program.parse();
 };
+
+export { migrate, migration };

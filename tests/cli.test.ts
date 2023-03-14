@@ -16,7 +16,7 @@ const execute = async (script: string, execOptions: any) => {
 };
 
 const envVars = {
-  CH_MIGRATIONS_HOST: 'http://localhost:8123',
+  CH_MIGRATIONS_HOST: 'http://sometesthost:8123',
   CH_MIGRATIONS_USER: 'default',
   CH_MIGRATIONS_PASSWORD: '',
   CH_MIGRATIONS_DB: 'analytics',
@@ -36,7 +36,7 @@ describe('Execution tests', () => {
 
   it('No migration directory', async () => {
     const command =
-      "node ./lib/cli.js  migrate --host=http://localhost:8123 --user=default --password='' --db=analytics --migrations-home=/app/clickhouse/migrations";
+      "node ./lib/cli.js  migrate --host=http://sometesthost:8123 --user=default --password='' --db=analytics --migrations-home=/app/clickhouse/migrations";
 
     const result = await execute(command, '.');
 
@@ -50,6 +50,17 @@ describe('Execution tests', () => {
 
     expect(result.stderr).toBe(
       '\x1B[36m clickhouse-migrations : \x1B[31m Error: no migration directory /app/clickhouse/migrations. Please create it. \n',
+    );
+  });
+
+  it('Incorrectly named migration', async () => {
+    const command =
+      "node ./lib/cli.js  migrate --host=http://sometesthost:8123 --user=default --password='' --db=analytics --migrations-home=tests/migrations/bad";
+
+    const result = await execute(command, '.');
+
+    expect(result.stderr).toBe(
+      '\x1B[36m clickhouse-migrations : \x1B[31m Error: a migration name should start from number, example: 1_init.sql. Please check, if the migration bad_1.sql is named correctly \n',
     );
   });
 });
