@@ -1,6 +1,6 @@
 {
   "name": "clickhouse-migrations",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "ClickHouse Migrations",
   "bin": {
     "clickhouse-migrations": "lib/cli.js"
