@@ -8,7 +8,7 @@ describe('Sql query parse', () => {
   });
 
   it('1 query test', async () => {
-    const input = '-- any\n\n# other comment\n\n#! also comment\nSELECT * \nFROM events;\n';
+    const input = '-- any\n\n# other comment\n\n#! also comment\n  SELECT * \nFROM events;\n';
 
     const output = ['SELECT * FROM events'];
 
@@ -21,18 +21,19 @@ describe('Sql settings parse', () => {
     jest.resetModules();
   });
 
-  it('one comment and one settings with end of lines', async () => {
-    const input = '-- any\nSET allow_experimental_object_type = 1;\n';
+  it('one set and comments with no end of lines', async () => {
+    const input = '-- any\nSET allow_experimental_object_type = 1;\n\n --set option\nSELECT * FROM events';
 
     const output = { allow_experimental_object_type: '1' };
 
     expect(sql_sets(input)).toEqual(output);
   });
 
-  it('no end of line at the end of last line', async () => {
-    const input = '-- any\nSET allow_experimental_object_type = 1;';
+  it('two sets and comments', async () => {
+    const input =
+      '-- any\nSET allow_experimental_object_type = 1; --set option\nSET allow_experimental_object_new = 1;\nSELECT * \n  --comment\n  FROM events\n';
 
-    const output = { allow_experimental_object_type: '1' };
+    const output = { allow_experimental_object_type: '1', allow_experimental_object_new: '1' };
 
     expect(sql_sets(input)).toEqual(output);
   });
