@@ -1,0 +1,43 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/release-please-action@v3
+        id: release
+        with:
+          release-type: node
+          package-name: release-please-action
+
+      - uses: actions/checkout@v3
+        name: Checkout repository
+        if: ${{ steps.release.outputs.release_created }}
+        
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18.15.0'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+        if: ${{ steps.release.outputs.release_created }}
+    
+      - name: Install and build
+        run: |
+          npm install
+        if: ${{ steps.release.outputs.release_created }}
+    
+      - name: Publish package to NPM
+        run: |
+          cd package
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_ACCESS_TOKEN }}" > .npmrc
+          npm publish
+        if: ${{ steps.release.outputs.release_created }}

@@ -1,5 +1,5 @@
 {
-  "name": "clickhouse-migrations",
+  "name": "@gentrace/clickhouse-migrations",
   "version": "0.1.13",
   "description": "ClickHouse Migrations",
   "bin": {

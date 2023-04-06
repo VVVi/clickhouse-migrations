@@ -1,12 +1,11 @@
-
-# clickhouse-migrations
+# @gentrace/clickhouse-migrations
 
 > ClickHouse Migrations CLI
 
 ## Install
 
 ```sh
-npm install --global clickhouse-migrations
+npm install @gentrace/clickhouse-migrations
 ```
 
 ## Usage
