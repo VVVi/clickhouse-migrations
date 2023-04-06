@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.15](https://github.com/gentrace/clickhouse-migrations/compare/v0.1.14...v0.1.15) (2023-04-06)
+
+
+### Miscellaneous Chores
+
+* release 0.1.15 ([87129d5](https://github.com/gentrace/clickhouse-migrations/commit/87129d5c73561fef3fd813e9230f54d68c82d8a6))
+
 ## 0.1.14 (2023-04-06)
 
 
