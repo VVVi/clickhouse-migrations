@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16](https://github.com/gentrace/clickhouse-migrations/compare/v0.1.15...v0.1.16) (2023-04-06)
+
+
+### Bug Fixes
+
+* remove package cd ([ea6ed67](https://github.com/gentrace/clickhouse-migrations/commit/ea6ed679333e43c8aacd0d41d4a2bac918346493))
+
 ## [0.1.15](https://github.com/gentrace/clickhouse-migrations/compare/v0.1.14...v0.1.15) (2023-04-06)
 
 
