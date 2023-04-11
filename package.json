@@ -23,7 +23,20 @@
     "@clickhouse/client": "^0.0.14",
     "commander": "^10.0.0"
   },
+  "husky": {
+    "hooks": {
+      "commit-msg": "npx commitlint -E  HUSKY_GIT_PARAMS "
+    }
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
   "devDependencies": {
+    "@commitlint/cli": "^17.5.1",
+    "@commitlint/config-conventional": "^17.4.4",
+    "husky": "^4.3.8",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.15.11",
     "@typescript-eslint/parser": "^5.57.0",
