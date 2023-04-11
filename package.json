@@ -6,7 +6,7 @@
     "clickhouse-migrations": "lib/cli.js"
   },
   "scripts": {
-    "build": "rm lib/*; tsc",
+    "build": "rm lib/*; tsc ",
     "test": "jest --config jestconfig.json",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\"",
     "lint": "eslint ./src --ext .ts",
