@@ -5,6 +5,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 
 import { sql_queries, sql_sets } from './sql-parse';
+import { ClickhouseDbParams, CliParameters, MigrationBase, MigrationsRowData, QueryError } from './types/cli';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
   if (type === 'info') {

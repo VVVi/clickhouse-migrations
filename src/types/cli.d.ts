@@ -1,4 +1,4 @@
-/// <reference types="node" />
+import type { ClickHouseSettings } from '@clickhouse/client';
 
 type ClickhouseDbParams = {
   host: string;
@@ -11,7 +11,7 @@ type ClickhouseDbParams = {
   application?: string;
   database?: string;
   clickhouse_settings?: ClickHouseSettings;
-  log?: { enable?: boolean; LoggerClass?: Logger };
+  log?: { enable?: boolean; LoggerClass?: any };
   tls?: { ca_cert: Buffer; cert?: Buffer; key?: Buffer };
   session_id?: string;
 };
@@ -25,7 +25,7 @@ type MigrationsRowData = {
   version: number;
   checksum: string;
   migration_name: string;
-}
+};
 
 type CliParameters = {
   migrationsHome: string;
@@ -37,4 +37,4 @@ type CliParameters = {
 
 type QueryError = {
   message: string;
-}
+};
