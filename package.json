@@ -1,6 +1,6 @@
 {
   "name": "@gentrace/clickhouse-migrations",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "ClickHouse Migrations",
   "bin": {
     "clickhouse-migrations": "lib/src/cli.js"

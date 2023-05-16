@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/gentrace/clickhouse-migrations/compare/v0.2.0...v0.2.1) (2023-05-16)
+
+
+### Bug Fixes
+
+* ensure that tests are working ([#9](https://github.com/gentrace/clickhouse-migrations/issues/9)) ([1c6844b](https://github.com/gentrace/clickhouse-migrations/commit/1c6844bf3d5a54eede6ad0e6d124ffa2df352841))
+
 ## [0.2.0](https://github.com/gentrace/clickhouse-migrations/compare/v0.1.16...v0.2.0) (2023-05-16)
 
 
