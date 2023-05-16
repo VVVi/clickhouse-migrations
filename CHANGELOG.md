@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/gentrace/clickhouse-migrations/compare/v0.1.16...v0.2.0) (2023-05-16)
+
+
+### Features
+
+* add ES modules, rollup and expose TS handler directly to migrate([#7](https://github.com/gentrace/clickhouse-migrations/issues/7)) ([0aa2781](https://github.com/gentrace/clickhouse-migrations/commit/0aa278199a5e1e826b8cfd277f97b4f060aab124))
+
 ## [0.1.16](https://github.com/gentrace/clickhouse-migrations/compare/v0.1.15...v0.1.16) (2023-04-06)
 
 
