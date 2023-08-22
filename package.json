@@ -6,15 +6,10 @@
     "clickhouse-migrations": "lib/cli.js"
   },
   "scripts": {
-    "build": "rm lib/*; npx tsc",
+    "build": "npx tsc",
     "test": "jest --config jestconfig.json",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\"",
-    "lint": "eslint ./src --ext .ts",
-    "prepare": "npm run build",
-    "prepublishOnly": "npm test && npm run lint",
-    "preversion": "npm run lint",
-    "version": "npm run format && git add -A src",
-    "postversion": "git push && git push --tags"
+    "lint": "eslint ./src --ext .ts"
   },
   "author": "",
   "license": "MIT",

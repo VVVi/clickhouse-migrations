@@ -18,8 +18,8 @@ const connect = (
   host: string,
   username: string,
   password: string,
+  db_name: string | null = null,
   ca_cert: string | null = null,
-  db_name?: string,
 ): ClickHouseClient => {
   const db_params: ClickhouseDbParams = {
     host,
@@ -48,7 +48,7 @@ const create_db = async (
   db_name: string,
   ca_cert?: string,
 ): Promise<void> => {
-  const client = connect(host, username, password, ca_cert || null);
+  const client = connect(host, username, password, null, ca_cert || null);
 
   // TODO: provided engine type over parameters
   const q = `CREATE DATABASE IF NOT EXISTS ${db_name} ENGINE = Atomic`;
