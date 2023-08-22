@@ -14,12 +14,25 @@ const log = (type: 'info' | 'error' = 'info', message: string, error?: string) =
   }
 };
 
-const connect = (host: string, username: string, password: string, db_name?: string): ClickHouseClient => {
+const connect = (
+  host: string,
+  username: string,
+  password: string,
+  ca_cert: string | null = null,
+  db_name?: string,
+): ClickHouseClient => {
   const db_params: ClickhouseDbParams = {
     host,
     username,
     password,
     application: 'clickhouse-migrations',
+    ...(ca_cert
+      ? {
+          tls: {
+            ca_cert: fs.readFileSync(ca_cert),
+          },
+        }
+      : {}),
   };
 
   if (db_name) {
@@ -28,8 +41,14 @@ const connect = (host: string, username: string, password: string, db_name?: str
   return createClient(db_params);
 };
 
-const create_db = async (host: string, username: string, password: string, db_name: string): Promise<void> => {
-  const client = connect(host, username, password);
+const create_db = async (
+  host: string,
+  username: string,
+  password: string,
+  db_name: string,
+  ca_cert?: string,
+): Promise<void> => {
+  const client = connect(host, username, password, ca_cert || null);
 
   // TODO: provided engine type over parameters
   const q = `CREATE DATABASE IF NOT EXISTS ${db_name} ENGINE = Atomic`;
@@ -222,12 +241,13 @@ const migration = async (
   username: string,
   password: string,
   db_name: string,
+  ca_cert?: string,
 ): Promise<void> => {
   const migrations = get_migrations(migrations_home);
 
-  await create_db(host, username, password, db_name);
+  await create_db(host, username, password, db_name, ca_cert);
 
-  const client = connect(host, username, password, db_name);
+  const client = connect(host, username, password, ca_cert, db_name);
 
   await init_migration_table(client);
 
@@ -249,8 +269,16 @@ const migrate = () => {
     .requiredOption('--password <password>', 'Password', process.env.CH_MIGRATIONS_PASSWORD)
     .requiredOption('--db <name>', 'Database name', process.env.CH_MIGRATIONS_DB)
     .requiredOption('--migrations-home <dir>', "Migrations' directory", process.env.CH_MIGRATIONS_HOME)
+    .option('--ca-cert-path <path>', 'Path to ca_cert', process.env.CH_MIGRATIONS_CA_CERT)
     .action(async (options: CliParameters) => {
-      await migration(options.migrationsHome, options.host, options.user, options.password, options.db);
+      await migration(
+        options.migrationsHome,
+        options.host,
+        options.user,
+        options.password,
+        options.db,
+        options.ca_cert,
+      );
     });
 
   program.parse();
