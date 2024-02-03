@@ -25,7 +25,7 @@ type MigrationsRowData = {
   version: number;
   checksum: string;
   migration_name: string;
-}
+};
 
 type CliParameters = {
   migrationsHome: string;
@@ -33,8 +33,9 @@ type CliParameters = {
   user: string;
   password: string;
   db: string;
+  ca_cert?: string;
 };
 
 type QueryError = {
   message: string;
-}
+};
