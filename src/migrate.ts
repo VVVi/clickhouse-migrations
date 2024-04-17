@@ -32,7 +32,7 @@ const create_db = async (host: string, username: string, password: string, db_na
   const client = connect(host, username, password);
 
   // TODO: provided engine type over parameters
-  const q = `CREATE DATABASE IF NOT EXISTS ${db_name} ENGINE = Atomic`;
+  const q = `CREATE DATABASE IF NOT EXISTS "${db_name}" ENGINE = Atomic`;
 
   try {
     await client.exec({
