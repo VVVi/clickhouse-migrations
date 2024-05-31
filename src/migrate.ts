@@ -1,9 +1,9 @@
-import type { ClickHouseClient } from '@clickhouse/client';
 import { createClient } from '@clickhouse/client';
+import type { ClickHouseClient } from '@clickhouse/client';
+import type { NodeClickHouseClientConfigOptions } from '@clickhouse/client/dist/client';
 import { Command } from 'commander';
 import fs from 'fs';
 import crypto from 'crypto';
-
 import { sql_queries, sql_sets } from './sql-parse';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
@@ -14,8 +14,14 @@ const log = (type: 'info' | 'error' = 'info', message: string, error?: string) =
   }
 };
 
-const connect = (host: string, username: string, password: string, db_name?: string): ClickHouseClient => {
-  const db_params: ClickhouseDbParams = {
+const connect = (
+  host: string,
+  username: string,
+  password: string,
+  db_name?: string,
+  timeout?: string,
+): ClickHouseClient => {
+  const db_params: NodeClickHouseClientConfigOptions = {
     host,
     username,
     password,
@@ -25,6 +31,11 @@ const connect = (host: string, username: string, password: string, db_name?: str
   if (db_name) {
     db_params.database = db_name;
   }
+
+  if (timeout) {
+    db_params.request_timeout = Number(timeout);
+  }
+
   return createClient(db_params);
 };
 
@@ -222,12 +233,13 @@ const migration = async (
   username: string,
   password: string,
   db_name: string,
+  timeout?: string,
 ): Promise<void> => {
   const migrations = get_migrations(migrations_home);
 
   await create_db(host, username, password, db_name);
 
-  const client = connect(host, username, password, db_name);
+  const client = connect(host, username, password, db_name, timeout);
 
   await init_migration_table(client);
 
@@ -249,8 +261,20 @@ const migrate = () => {
     .requiredOption('--password <password>', 'Password', process.env.CH_MIGRATIONS_PASSWORD)
     .requiredOption('--db <name>', 'Database name', process.env.CH_MIGRATIONS_DB)
     .requiredOption('--migrations-home <dir>', "Migrations' directory", process.env.CH_MIGRATIONS_HOME)
+    .option(
+      '--timeout <value>',
+      'Client request timeout (milliseconds, default value 30000)',
+      process.env.CH_MIGRATIONS_TIMEOUT,
+    )
     .action(async (options: CliParameters) => {
-      await migration(options.migrationsHome, options.host, options.user, options.password, options.db);
+      await migration(
+        options.migrationsHome,
+        options.host,
+        options.user,
+        options.password,
+        options.db,
+        options.timeout,
+      );
     });
 
   program.parse();

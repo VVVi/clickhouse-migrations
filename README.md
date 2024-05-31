@@ -31,6 +31,9 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
       --db=<name>               Database name
       --migrations-home=<dir>   Migrations' directory
 
+  Optional options
+      --timeout=<value>         Client request timeout (milliseconds, default value 30000)
+
   Environment variables
       Instead of options can be used environment variables.
       CH_MIGRATIONS_HOST        Clickhouse hostname (--host)
@@ -38,13 +41,16 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
       CH_MIGRATIONS_PASSWORD    Password (--password)
       CH_MIGRATIONS_DB          Database name (--db)
       CH_MIGRATIONS_HOME        Migrations' directory (--migrations-home)
+      CH_MIGRATIONS_TIMEOUT     Client request timeout (--timeout)
 
   CLI examples
       clickhouse-migrations migrate --host=http://localhost:8123 
       --user=default --password='' --db=analytics 
       --migrations-home=/app/clickhouse/migrations
 
-      clickhouse-migrations migrate 
+      clickhouse-migrations migrate
+
+      clickhouse-migrations migrate --timeout=60000
 ```
 
 Migration file example:
