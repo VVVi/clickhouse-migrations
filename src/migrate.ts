@@ -5,6 +5,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 
 import { sql_queries, sql_sets } from './sql-parse';
+import { ClickHouseClientConfigOptions } from '@clickhouse/client';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
   if (type === 'info') {
@@ -15,7 +16,7 @@ const log = (type: 'info' | 'error' = 'info', message: string, error?: string) =
 };
 
 const connect = (host: string, username: string, password: string, db_name?: string): ClickHouseClient => {
-  const db_params: ClickhouseDbParams = {
+  const db_params: ClickHouseClientConfigOptions = {
     host,
     username,
     password,
@@ -51,13 +52,13 @@ const create_db = async (host: string, username: string, password: string, db_na
 
 const init_migration_table = async (client: ClickHouseClient): Promise<void> => {
   const q = `CREATE TABLE IF NOT EXISTS _migrations (
-      uid UUID DEFAULT generateUUIDv4(), 
+      uid UUID DEFAULT generateUUIDv4(),
       version UInt32,
-      checksum String, 
-      migration_name String, 
+      checksum String,
+      migration_name String,
       applied_at DateTime DEFAULT now()
-    ) 
-    ENGINE = MergeTree 
+    )
+    ENGINE = MergeTree
     ORDER BY tuple(applied_at)`;
 
   try {
