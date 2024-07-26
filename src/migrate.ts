@@ -15,9 +15,9 @@ const log = (type: 'info' | 'error' = 'info', message: string, error?: string) =
   }
 };
 
-const connect = (host: string, username: string, password: string, db_name?: string): ClickHouseClient => {
+const connect = (url: string, username: string, password: string, db_name?: string): ClickHouseClient => {
   const db_params: ClickHouseClientConfigOptions = {
-    host,
+    url,
     username,
     password,
     application: 'clickhouse-migrations',
