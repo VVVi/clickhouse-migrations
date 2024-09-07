@@ -32,7 +32,8 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
       --migrations-home=<dir>   Migrations' directory
 
   Optional options
-      --timeout=<value>         Client request timeout (milliseconds, default value 30000)
+      --db-engine=<value>       ON CLUSTER and/or ENGINE (default: 'ENGINE=Atomic') for db
+      --timeout=<value>         Client request timeout (milliseconds, default: 30000)
 
   Environment variables
       Instead of options can be used environment variables.
@@ -41,15 +42,26 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
       CH_MIGRATIONS_PASSWORD    Password (--password)
       CH_MIGRATIONS_DB          Database name (--db)
       CH_MIGRATIONS_HOME        Migrations' directory (--migrations-home)
-      CH_MIGRATIONS_TIMEOUT     Client request timeout (--timeout)
+      
+      CH_MIGRATIONS_DB_ENGINE   (optional) DB engine (--db-engine)
+      CH_MIGRATIONS_TIMEOUT     (optional) Client request timeout (--timeout)
 
-  CLI examples
-      clickhouse-migrations migrate --host=http://localhost:8123 
+  CLI executions examples
+    settings are passed as command-line options
+      clickhouse-migrations migrate --host=http://localhost:8123
       --user=default --password='' --db=analytics 
       --migrations-home=/app/clickhouse/migrations
 
+    settings provided as options, including timeout and db-engine
+      clickhouse-migrations migrate --host=http://localhost:8123 
+      --user=default --password='' --db=analytics 
+      --migrations-home=/app/clickhouse/migrations --timeout=60000 
+      --db-engine="ON CLUSTER default ENGINE=Replicated('{replica}')"    
+
+    settings provided as environment variables
       clickhouse-migrations migrate
 
+    settings provided partially through options and environment variables
       clickhouse-migrations migrate --timeout=60000
 ```
 
@@ -60,6 +72,13 @@ Migration file example:
 SET allow_experimental_object_type = 1;
 
 CREATE TABLE IF NOT EXISTS events (
+  timestamp DateTime('UTC'),
+  session_id UInt64,
   event JSON
-);
+)
+ENGINE=AggregatingMergeTree
+PARTITION BY toYYYYMM(timestamp) 
+SAMPLE BY session_id 
+ORDER BY (session_id) 
+SETTINGS index_granularity = 8192;
 ```      

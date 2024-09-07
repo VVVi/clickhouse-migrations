@@ -39,11 +39,16 @@ const connect = (
   return createClient(db_params);
 };
 
-const create_db = async (host: string, username: string, password: string, db_name: string): Promise<void> => {
+const create_db = async (
+  host: string,
+  username: string,
+  password: string,
+  db_name: string,
+  db_engine: string = 'ENGINE=Atomic',
+): Promise<void> => {
   const client = connect(host, username, password);
 
-  // TODO: provided engine type over parameters
-  const q = `CREATE DATABASE IF NOT EXISTS "${db_name}" ENGINE = Atomic`;
+  const q = `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`;
 
   try {
     await client.exec({
@@ -233,11 +238,12 @@ const migration = async (
   username: string,
   password: string,
   db_name: string,
+  db_engine?: string,
   timeout?: string,
 ): Promise<void> => {
   const migrations = get_migrations(migrations_home);
 
-  await create_db(host, username, password, db_name);
+  await create_db(host, username, password, db_name, db_engine);
 
   const client = connect(host, username, password, db_name, timeout);
 
@@ -251,7 +257,7 @@ const migration = async (
 const migrate = () => {
   const program = new Command();
 
-  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('0.1.13');
+  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('0.2.2');
 
   program
     .command('migrate')
@@ -261,6 +267,11 @@ const migrate = () => {
     .requiredOption('--password <password>', 'Password', process.env.CH_MIGRATIONS_PASSWORD)
     .requiredOption('--db <name>', 'Database name', process.env.CH_MIGRATIONS_DB)
     .requiredOption('--migrations-home <dir>', "Migrations' directory", process.env.CH_MIGRATIONS_HOME)
+    .option(
+      '--db-engine <value>',
+      'ON CLUSTER and/or ENGINE clauses for database (default: "ENGINE=Atomic")',
+      process.env.CH_MIGRATIONS_DB_ENGINE,
+    )
     .option(
       '--timeout <value>',
       'Client request timeout (milliseconds, default value 30000)',
@@ -273,6 +284,7 @@ const migrate = () => {
         options.user,
         options.password,
         options.db,
+        options.dbEngine,
         options.timeout,
       );
     });

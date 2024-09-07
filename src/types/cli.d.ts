@@ -17,6 +17,7 @@ type CliParameters = {
   user: string;
   password: string;
   db: string;
+  dbEngine?: string;
   timeout?: string;
 };
 
