@@ -1,9 +1,9 @@
 import { createClient } from '@clickhouse/client';
-import type { ClickHouseClient } from '@clickhouse/client';
-import type { NodeClickHouseClientConfigOptions } from '@clickhouse/client/dist/client';
+import type { ClickHouseClient, ClickHouseClientConfigOptions } from '@clickhouse/client';
 import { Command } from 'commander';
 import fs from 'fs';
 import crypto from 'crypto';
+
 import { sql_queries, sql_sets } from './sql-parse';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
@@ -21,7 +21,7 @@ const connect = (
   db_name?: string,
   timeout?: string,
 ): ClickHouseClient => {
-  const db_params: NodeClickHouseClientConfigOptions = {
+  const db_params: ClickHouseClientConfigOptions = {
     url,
     username,
     password,
