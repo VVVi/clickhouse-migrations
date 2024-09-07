@@ -5,7 +5,13 @@
   },
   "plugins": ["@typescript-eslint", "prettier"],  
   "rules": {
-    "no-console": "off"
+    "no-console": "off",
+    "@typescript-eslint/no-unused-vars": ["error", {
+      "vars": "all",
+      "args": "after-used",
+      "caughtErrors": "none",
+      "ignoreRestSiblings": true
+    }]
   },
   "extends": [
     "eslint:recommended",
