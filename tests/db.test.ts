@@ -38,13 +38,13 @@ describe('Migration tests', () => {
     });
     expect(execSpy).toHaveBeenNthCalledWith(2, {
       query: `CREATE TABLE IF NOT EXISTS _migrations (
-      uid UUID DEFAULT generateUUIDv4(), 
+      uid UUID DEFAULT generateUUIDv4(),
       version UInt32,
-      checksum String, 
-      migration_name String, 
+      checksum String,
+      migration_name String,
       applied_at DateTime DEFAULT now()
-    ) 
-    ENGINE = MergeTree 
+    )
+    ENGINE = MergeTree
     ORDER BY tuple(applied_at)`,
       clickhouse_settings: {
         wait_end_of_query: 1,

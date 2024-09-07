@@ -15,14 +15,14 @@ const log = (type: 'info' | 'error' = 'info', message: string, error?: string) =
 };
 
 const connect = (
-  host: string,
+  url: string,
   username: string,
   password: string,
   db_name?: string,
   timeout?: string,
 ): ClickHouseClient => {
   const db_params: NodeClickHouseClientConfigOptions = {
-    host,
+    url,
     username,
     password,
     application: 'clickhouse-migrations',
@@ -62,13 +62,13 @@ const create_db = async (host: string, username: string, password: string, db_na
 
 const init_migration_table = async (client: ClickHouseClient): Promise<void> => {
   const q = `CREATE TABLE IF NOT EXISTS _migrations (
-      uid UUID DEFAULT generateUUIDv4(), 
+      uid UUID DEFAULT generateUUIDv4(),
       version UInt32,
-      checksum String, 
-      migration_name String, 
+      checksum String,
+      migration_name String,
       applied_at DateTime DEFAULT now()
-    ) 
-    ENGINE = MergeTree 
+    )
+    ENGINE = MergeTree
     ORDER BY tuple(applied_at)`;
 
   try {
