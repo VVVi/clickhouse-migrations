@@ -5,7 +5,6 @@ import { Command } from 'commander';
 import fs from 'fs';
 import crypto from 'crypto';
 import { sql_queries, sql_sets } from './sql-parse';
-import { ClickHouseClientConfigOptions } from '@clickhouse/client';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
   if (type === 'info') {
