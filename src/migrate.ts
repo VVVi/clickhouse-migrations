@@ -89,7 +89,7 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
   try {
     files = fs.readdirSync(migrations_home);
   } catch (e: unknown) {
-    log('error', `no migration directory ${migrations_home}. Please create it.`);
+    log('error', `no migration directory ${migrations_home}. Please create it.`, (e as QueryError).message);
     process.exit(1);
   }
 
