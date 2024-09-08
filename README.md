@@ -32,8 +32,10 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
       --migrations-home=<dir>   Migrations' directory
 
   Optional options
-      --db-engine=<value>       ON CLUSTER and/or ENGINE (default: 'ENGINE=Atomic') for db
-      --timeout=<value>         Client request timeout (milliseconds, default: 30000)
+      --db-engine=<value>       ON CLUSTER and/or ENGINE for DB
+                                  (default: 'ENGINE=Atomic')
+      --timeout=<value>         Client request timeout 
+                                  (milliseconds, default: 30000)
 
   Environment variables
       Instead of options can be used environment variables.
@@ -42,9 +44,10 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
       CH_MIGRATIONS_PASSWORD    Password (--password)
       CH_MIGRATIONS_DB          Database name (--db)
       CH_MIGRATIONS_HOME        Migrations' directory (--migrations-home)
-      
+
       CH_MIGRATIONS_DB_ENGINE   (optional) DB engine (--db-engine)
-      CH_MIGRATIONS_TIMEOUT     (optional) Client request timeout (--timeout)
+      CH_MIGRATIONS_TIMEOUT     (optional) Client request timeout 
+                                  (--timeout)
 
   CLI executions examples
     settings are passed as command-line options
@@ -66,6 +69,7 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
 ```
 
 Migration file example:
+(e.g., located at /app/clickhouse/migrations/1_init.sql)
 ```
 -- an example of migration file 1_init.sql
 
