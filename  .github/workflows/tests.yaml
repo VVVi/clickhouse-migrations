@@ -1,0 +1,39 @@
+name: 'tests'
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+
+  schedule:
+    - cron: '0 9 * * *'
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@main
+
+      - name: Setup NodeJS ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install dependencies
+        run: |
+          npm install
+
+      - name: Linting
+        run: |
+          npm run lint
+
+      - name: Unit testing
+        run: |
+          npm run test
