@@ -1,35 +1,31 @@
-name: 'publish npm'
+name: release-please
 
 on:
-  workflow_dispatch:
-
   push:
     branches:
       - main
-    tags:
-      - v*
-
-permissions:
-  contents: write
-  pull-requests: write
 
 jobs:
-  release:
+  release-please:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v3
+      - uses: googleapis/release-please-action@v4
+        id: release
         with:
-          node-version: '18.x'
+          release-type: node
+
+      # publish npm:
+      - uses: actions/checkout@v4
+        # a publication only occurs when a new release is created:
+        if: ${{ steps.release.outputs.release_created }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Install packages
-        run: |
-          npm ci
-
-      # - name: Publish package to npmjs.com
-      #   run: npm publish --access public
-      #   env:
-      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        if: ${{ steps.release.outputs.release_created }}
+      - run: npm ci
+        if: ${{ steps.release.outputs.release_created }}
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+        if: ${{ steps.release.outputs.release_created }}
