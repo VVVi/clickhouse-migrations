@@ -78,15 +78,15 @@ jobs:
       - name: Verify Migration
         run: |
           echo "Checking if tables exist..."
-          response=$(curl -s "http://localhost:8123/?query=SELECT%20groupArray(name)%20FROM%20system.tables%20WHERE%20name%20IN%20('events','sessions')")
+          response=$(curl -s "http://localhost:8123/?query=SELECT%20groupArray(name)%20FROM%20system.tables%20WHERE%20name%20IN%20('_migrations','events','sessions')%20AND%20database%20=%20'analytics'")
           echo "Response: $response"
 
-          expected_tables="['events','sessions']"
+          expected_tables="['_migrations','events','sessions']"
 
           if [ "$response" = "$expected_tables" ]; then
             echo "The tables were created successfully."
           else
-            echo "One or more tables were not found!"
+            echo "Tables were not found!"
             echo "Expected: $expected_tables"
             echo "Got: $response"
             exit 1
