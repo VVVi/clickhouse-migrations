@@ -1,15 +1,17 @@
 {
   "compilerOptions": {
-    "target": "es5",
-    "module": "commonjs",
+    "target": "ES6",
+    "module": "ESNext",
 
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,    
-
+    "forceConsistentCasingInFileNames": true,
     "declaration": true,
-    "outDir": "./lib"   
+    "noImplicitAny": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "rootDir": "src",
+    "outDir": "./lib"
   },
   "include": ["src", "types"],
   "exclude": ["node_modules", "tests"]
