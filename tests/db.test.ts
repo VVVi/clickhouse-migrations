@@ -64,7 +64,7 @@ describe('Migration tests', () => {
     expect(insertSpy).toHaveBeenNthCalledWith(1, {
       format: 'JSONEachRow',
       table: '_migrations',
-      values: [{ checksum: '6c3ecd72607a5ee2178db225c667fbb0', migration_name: '1_init.sql', version: 1 }],
+      values: [{ checksum: '2f66edf1a8c3fa2e29835ad9ac8140a7', migration_name: '1_init.sql', version: 1 }],
     });
   });
 });
