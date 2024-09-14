@@ -22,18 +22,18 @@ describe('Sql settings parse', () => {
   });
 
   it('one set and comments with no end of lines', async () => {
-    const input = '-- any\nSET allow_experimental_object_type = 1;\n\n --set option\nSELECT * FROM events';
+    const input = '-- any\nSET allow_experimental_json_type = 1;\n\n --set option\nSELECT * FROM events';
 
-    const output = { allow_experimental_object_type: '1' };
+    const output = { allow_experimental_json_type: '1' };
 
     expect(sql_sets(input)).toEqual(output);
   });
 
   it('two sets and comments', async () => {
     const input =
-      '-- any\nSET allow_experimental_object_type = 1; --set option\nSET allow_experimental_object_new = 1;\nSELECT * \n  --comment\n  FROM events\n';
+      '-- any\nSET allow_experimental_json_type = 1; --set option\nSET allow_experimental_object_new = 1;\nSELECT * \n  --comment\n  FROM events\n';
 
-    const output = { allow_experimental_object_type: '1', allow_experimental_object_new: '1' };
+    const output = { allow_experimental_json_type: '1', allow_experimental_object_new: '1' };
 
     expect(sql_sets(input)).toEqual(output);
   });
