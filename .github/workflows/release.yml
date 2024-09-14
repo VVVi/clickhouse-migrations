@@ -5,6 +5,11 @@ on:
     branches:
       - main
 
+  workflow_run:
+    workflows: ['tests']
+    types:
+      - completed
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
