@@ -6,7 +6,7 @@
 ## Install
 
 ```sh
-npm install --global clickhouse-migrations
+npm install clickhouse-migrations
 ```
 
 ## Usage
@@ -73,7 +73,7 @@ Migration file example:
 ```
 -- an example of migration file 1_init.sql
 
-SET allow_experimental_object_type = 1;
+SET allow_experimental_json_type = 1;
 
 CREATE TABLE IF NOT EXISTS events (
   timestamp DateTime('UTC'),
