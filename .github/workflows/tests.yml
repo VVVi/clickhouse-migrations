@@ -73,8 +73,7 @@ jobs:
 
       - name: Test migrations/few
         run: |
-          pwd
-          node ./lib/cli.js  migrate --host=http://localhost:8123 --user=default --password='' --db=analytics --migrations-home=/test/migrations/few
+          node ./lib/cli.js  migrate --host=http://localhost:8123 --user=default --password='' --db=analytics --migrations-home=./tests/migrations/few
 
       # - name: Run integration tests
       #   run: |
