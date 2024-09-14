@@ -77,4 +77,12 @@ jobs:
 
       - name: Verify Migration
         run: |
-          curl http://localhost:8123/?query=SHOW%20TABLES
+          echo "Checking if table 'events' exists..."
+          response=$(curl -s "http://localhost:8123/?query=SHOW%20TABLES%20LIKE%20'events'")
+          echo "Response: $response"
+          if [ "$response" = "events" ]; then
+            echo "Table 'events' was created successfully."
+          else
+            echo "Table 'events' was not found!"
+            exit 1
+          fi
