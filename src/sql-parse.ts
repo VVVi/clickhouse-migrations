@@ -35,19 +35,3 @@ const sql_sets = (content: string) => {
 };
 
 export { sql_queries, sql_sets };
-
-// -- any
-// SET allow_experimental_object_type = 1; --set option
-// SET allow_experimental_object_new = 1;
-// SELECT * FROM events
-
-// sdfsfdsd
-// -- asssss
-//  --asdf
-// sdfsdf
-//   sdfsfs
-// SET a=1
-//   asdf
-//   SET f=22
-
-//   sdf
