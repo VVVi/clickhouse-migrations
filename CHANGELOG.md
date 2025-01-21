@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.4](https://github.com/VVVi/clickhouse-migrations/compare/v1.0.3...v1.0.4) (2025-01-21)
+
+
+### Features
+
+* update to eslint 9, update dependencies ([f91cf7d](https://github.com/VVVi/clickhouse-migrations/commit/f91cf7d83bbccde937de00206092e0474a885fac))
+
+
+### Miscellaneous Chores
+
+* release 1.0.4 ([2b653e3](https://github.com/VVVi/clickhouse-migrations/commit/2b653e3cdcb0b5d7db0bcb47ab99dd6ae4dd389b))
+
 ## [1.0.3](https://github.com/VVVi/clickhouse-migrations/compare/v1.0.2...v1.0.3) (2025-01-20)
 
 
