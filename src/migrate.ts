@@ -100,11 +100,10 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
 
   const migrations: MigrationBase[] = [];
   files.forEach((file: string) => {
-
-    // ignore child directorys
-    if (fs.statSync(migrations_home + '/' + file).isDirectory()) {
-      return;
-    }
+    // TODO: Ignore child directories. It can be a breaking change if some already use migrations in subfolders.
+    // if (fs.statSync(migrations_home + '/' + file).isDirectory()) {
+    //   return;
+    // }
 
     // Manage only .sql files.
     if (!file.endsWith('.sql')) {
@@ -389,6 +388,11 @@ const migrate = () => {
     .requiredOption('--password <password>', 'Password', process.env.CH_MIGRATIONS_PASSWORD)
     .requiredOption('--db <name>', 'Database name', process.env.CH_MIGRATIONS_DB)
     .requiredOption('--migrations-home <dir>', "Migrations' directory", process.env.CH_MIGRATIONS_HOME)
+    .option(
+      '--db-engine <value>',
+      'ON CLUSTER and/or ENGINE clauses for database (default: "ENGINE=Atomic")',
+      process.env.CH_MIGRATIONS_DB_ENGINE,
+    )
     .option(
       '--timeout <value>',
       'Client request timeout (milliseconds, default value 30000)',

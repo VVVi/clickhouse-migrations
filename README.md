@@ -85,4 +85,25 @@ PARTITION BY toYYYYMM(timestamp)
 SAMPLE BY session_id 
 ORDER BY (session_id) 
 SETTINGS index_granularity = 8192;
-```      
+```
+
+## Status command
+
+The `status` command provides an overview of the migration status, including the total number of migrations, applied migrations, and pending migrations. It accepts the same options as the `migrate` command.
+
+```
+  Usage
+    $ clickhouse-migrations status <options>
+
+  CLI executions examples
+    settings are passed as command-line options
+      clickhouse-migrations status --host=http://localhost:8123
+      --user=default --password='' --db=analytics 
+      --migrations-home=/app/clickhouse/migrations
+
+    settings provided as environment variables
+      clickhouse-migrations status
+
+    settings provided partially through options and environment variables
+      clickhouse-migrations status --timeout=60000
+```
