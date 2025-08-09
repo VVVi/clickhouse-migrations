@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        node: [18, 20, 22]
+        node: [20, 22]
     steps:
       - uses: actions/checkout@main
 
@@ -44,14 +44,14 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        node: [18, 20, 22]
+        node: [20, 22]
         clickhouse: [head, latest]
 
     steps:
       - uses: actions/checkout@main
 
-      - name: Start ClickHouse (version - ${{ matrix.clickhouse }}) using docker-compose
-        uses: isbang/compose-action@v1.5.1
+      - name: Start ClickHouse (version - ${{ matrix.clickhouse }}) in Docker
+        uses: isbang/compose-action@v2.3.0
         env:
           CLICKHOUSE_VERSION: ${{ matrix.clickhouse }}
         with:
