@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.5](https://github.com/VVVi/clickhouse-migrations/compare/v1.0.4...v1.0.5) (2025-08-09)
+
+
+### Features
+
+* early ignore non sql files in the migration folder ([5de5749](https://github.com/VVVi/clickhouse-migrations/commit/5de57493498a48fbb460d113e1d858806adc924c))
+* ignore child directories and non sql files ([e02d23d](https://github.com/VVVi/clickhouse-migrations/commit/e02d23dbc2c9032e0588b86c27afb3d2b652e7cf))
+
+
+### Miscellaneous Chores
+
+* release 1.0.5 ([cb60c99](https://github.com/VVVi/clickhouse-migrations/commit/cb60c990c555b4e6b1e5ef85b486c435335dcba8))
+
 ## [1.0.4](https://github.com/VVVi/clickhouse-migrations/compare/v1.0.3...v1.0.4) (2025-01-21)
 
 
