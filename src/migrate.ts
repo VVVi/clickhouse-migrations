@@ -103,7 +103,7 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
     const version = Number(file.split('_')[0]);
 
     // ignore child directorys
-    if (fs.statSync(file).isDirectory()) {
+    if (fs.statSync(migrations_home + '/' + file).isDirectory()) {
       return;
     }
 
@@ -261,6 +261,90 @@ const migration = async (
   await client.close();
 };
 
+const get_migration_status = async (
+  migrations_home: string,
+  host: string,
+  username: string,
+  password: string,
+  db_name: string,
+  timeout?: string,
+): Promise<{
+  totalMigrations: number;
+  appliedMigrations: number;
+  pendingMigrations: number;
+  appliedFiles: string[];
+  pendingFiles: string[];
+}> => {
+  const migrations = get_migrations(migrations_home);
+
+  const client = connect(host, username, password, db_name, timeout);
+
+  let migration_query_result: MigrationsRowData[] = [];
+  try {
+    const resultSet = await client.query({
+      query: `SELECT version, checksum, migration_name FROM _migrations ORDER BY version`,
+      format: 'JSONEachRow',
+    });
+    migration_query_result = await resultSet.json();
+  } catch (e: unknown) {
+    // If table or DB is missing, treat as zero applied
+    migration_query_result = [];
+  }
+
+  const appliedByVersion: Record<number, MigrationsRowData> = {};
+  const appliedFiles: string[] = [];
+  migration_query_result.forEach((row) => {
+    appliedByVersion[row.version] = row;
+    appliedFiles.push(row.migration_name);
+  });
+
+  const pendingFiles: string[] = [];
+  migrations.forEach((m) => {
+    if (!appliedByVersion[m.version]) {
+      pendingFiles.push(m.file);
+    }
+  });
+
+  await client.close();
+
+  return {
+    totalMigrations: migrations.length,
+    appliedMigrations: appliedFiles.length,
+    pendingMigrations: pendingFiles.length,
+    appliedFiles,
+    pendingFiles,
+  };
+};
+
+const status = async (
+  migrations_home: string,
+  host: string,
+  username: string,
+  password: string,
+  db_name: string,
+  timeout?: string,
+): Promise<void> => {
+  const s = await get_migration_status(migrations_home, host, username, password, db_name, timeout);
+
+  log('info', `Database: ${db_name}`);
+  log('info', `Migrations directory: ${migrations_home}`);
+  log('info', `Total migrations: ${s.totalMigrations}`);
+  log('info', `Applied: ${s.appliedMigrations}`);
+  log('info', `Pending: ${s.pendingMigrations}`);
+
+  if (s.appliedFiles.length) {
+    log('info', `Applied migrations: ${s.appliedFiles.join(', ')}`);
+  } else {
+    log('info', `Applied migrations: None`);
+  }
+
+  if (s.pendingFiles.length) {
+    log('info', `Pending migrations: ${s.pendingFiles.join(', ')}`);
+  } else {
+    log('info', `Pending migrations: None`);
+  }
+};
+
 const migrate = () => {
   const program = new Command();
 
@@ -296,7 +380,24 @@ const migrate = () => {
       );
     });
 
+  program
+    .command('status')
+    .description('Show migrations status.')
+    .requiredOption('--host <name>', 'Clickhouse hostname (ex: http://clickhouse:8123)', process.env.CH_MIGRATIONS_HOST)
+    .requiredOption('--user <name>', 'Username', process.env.CH_MIGRATIONS_USER)
+    .requiredOption('--password <password>', 'Password', process.env.CH_MIGRATIONS_PASSWORD)
+    .requiredOption('--db <name>', 'Database name', process.env.CH_MIGRATIONS_DB)
+    .requiredOption('--migrations-home <dir>', "Migrations' directory", process.env.CH_MIGRATIONS_HOME)
+    .option(
+      '--timeout <value>',
+      'Client request timeout (milliseconds, default value 30000)',
+      process.env.CH_MIGRATIONS_TIMEOUT,
+    )
+    .action(async (options: CliParameters) => {
+      await status(options.migrationsHome, options.host, options.user, options.password, options.db, options.timeout);
+    });
+
   program.parse();
 };
 
-export { migrate, migration };
+export { migrate, migration, status, get_migration_status };

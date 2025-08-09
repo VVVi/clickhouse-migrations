@@ -1,6 +1,6 @@
 import { describe, it, expect, jest } from '@jest/globals';
 
-import { migration } from '../src/migrate';
+import { migration, get_migration_status } from '../src/migrate';
 
 jest.mock('@clickhouse/client', () => ({ createClient: () => createClient1 }));
 
@@ -18,8 +18,7 @@ describe('Migration tests', () => {
   //   jest.resetModules();
   // });
 
-  // todo: remove only
-  it.only('First migration', async () => {
+  it('First migration', async () => {
     const querySpy = jest.spyOn(createClient1, 'query');
     const execSpy = jest.spyOn(createClient1, 'exec');
     const insertSpy = jest.spyOn(createClient1, 'insert');
@@ -66,5 +65,22 @@ describe('Migration tests', () => {
       table: '_migrations',
       values: [{ checksum: '2f66edf1a8c3fa2e29835ad9ac8140a7', migration_name: '1_init.sql', version: 1 }],
     });
+  });
+
+  it('Status shows pending when none applied', async () => {
+    // Reset mocks for status call
+    (createClient1.query as jest.Mock).mockReset().mockImplementationOnce(() => Promise.resolve({ json: () => [] }));
+    const status = await get_migration_status(
+      'tests/migrations/one',
+      'http://sometesthost:8123',
+      'default',
+      '',
+      'analytics',
+    );
+
+    expect(status.totalMigrations).toBe(1);
+    expect(status.appliedMigrations).toBe(0);
+    expect(status.pendingMigrations).toBe(1);
+    expect(status.pendingFiles).toEqual(['1_init.sql']);
   });
 });

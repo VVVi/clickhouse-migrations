@@ -24,3 +24,11 @@ type CliParameters = {
 type QueryError = {
   message: string;
 };
+
+type MigrationStatus = {
+  totalMigrations: number;
+  appliedMigrations: number;
+  pendingMigrations: number;
+  appliedFiles: string[];
+  pendingFiles: string[];
+};
