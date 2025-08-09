@@ -102,6 +102,16 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
   files.forEach((file: string) => {
     const version = Number(file.split('_')[0]);
 
+    // ignore child directorys
+    if (fs.statSync(file).isDirectory()) {
+      return;
+    }
+
+    // Manage only .sql files.
+    if (!file.endsWith('.sql')) {
+      return;
+    }
+
     if (!version) {
       log(
         'error',
@@ -109,9 +119,6 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
       );
       process.exit(1);
     }
-
-    // Manage only .sql files.
-    if (!file.endsWith('.sql')) return;
 
     migrations.push({
       version,
