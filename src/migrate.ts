@@ -100,7 +100,6 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
 
   const migrations: MigrationBase[] = [];
   files.forEach((file: string) => {
-    const version = Number(file.split('_')[0]);
 
     // ignore child directorys
     if (fs.statSync(migrations_home + '/' + file).isDirectory()) {
@@ -111,6 +110,8 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
     if (!file.endsWith('.sql')) {
       return;
     }
+
+    const version = Number(file.split('_')[0]);
 
     if (!version) {
       log(
