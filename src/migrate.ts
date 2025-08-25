@@ -40,13 +40,16 @@ const connect = (
   }
 
   if (ca_cert) {
-    db_params.tls = {
-      ca_cert: fs.readFileSync(ca_cert),
-    };
-
     if (cert && key) {
-      db_params.tls.cert = fs.readFileSync(cert);
-      db_params.tls.key = fs.readFileSync(key);
+      db_params.tls = {
+        ca_cert: fs.readFileSync(ca_cert),
+        cert: fs.readFileSync(cert),
+        key: fs.readFileSync(key),
+      };
+    } else {
+      db_params.tls = {
+        ca_cert: fs.readFileSync(ca_cert),
+      };
     }
   }
 
