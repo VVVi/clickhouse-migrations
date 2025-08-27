@@ -19,6 +19,9 @@ type CliParameters = {
   db: string;
   dbEngine?: string;
   timeout?: string;
+  ca_cert?: string;
+  cert?: string;
+  key?: string;
 };
 
 type QueryError = {
