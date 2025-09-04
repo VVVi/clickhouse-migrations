@@ -52,7 +52,6 @@ const connect = (
       };
     }
   }
-
   return createClient(db_params);
 };
 
@@ -67,8 +66,15 @@ const create_db = async (
   cert?: string,
   key?: string,
 ): Promise<void> => {
-  const client = connect(host, username, password, db_name, timeout, ca_cert, cert, key);
-
+  // Don't specify database name when creating it - connect to default database
+  const client = connect(host, username, password, undefined, timeout, ca_cert, cert, key);
+  try {
+    await client.ping();
+    log('info', `Successfully connected to ClickHouse`);
+  } catch (e: unknown) {
+    log('error', `Failed to connect to ClickHouse`, (e as QueryError).message);
+    process.exit(1);
+  }
   const q = `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`;
 
   try {
