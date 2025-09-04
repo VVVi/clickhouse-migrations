@@ -20,6 +20,9 @@ const connect = (
   password: string,
   db_name?: string,
   timeout?: string,
+  ca_cert?: string,
+  cert?: string,
+  key?: string,
 ): ClickHouseClient => {
   const db_params: ClickHouseClientConfigOptions = {
     url,
@@ -36,6 +39,19 @@ const connect = (
     db_params.request_timeout = Number(timeout);
   }
 
+  if (ca_cert) {
+    if (cert && key) {
+      db_params.tls = {
+        ca_cert: fs.readFileSync(ca_cert),
+        cert: fs.readFileSync(cert),
+        key: fs.readFileSync(key),
+      };
+    } else {
+      db_params.tls = {
+        ca_cert: fs.readFileSync(ca_cert),
+      };
+    }
+  }
   return createClient(db_params);
 };
 
@@ -45,9 +61,20 @@ const create_db = async (
   password: string,
   db_name: string,
   db_engine: string = 'ENGINE=Atomic',
+  timeout?: string,
+  ca_cert?: string,
+  cert?: string,
+  key?: string,
 ): Promise<void> => {
-  const client = connect(host, username, password);
-
+  // Don't specify database name when creating it - connect to default database
+  const client = connect(host, username, password, undefined, timeout, ca_cert, cert, key);
+  try {
+    await client.ping();
+    log('info', `Successfully connected to ClickHouse`);
+  } catch (e: unknown) {
+    log('error', `Failed to connect to ClickHouse`, (e as QueryError).message);
+    process.exit(1);
+  }
   const q = `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`;
 
   try {
@@ -235,19 +262,13 @@ const apply_migrations = async (
 };
 
 const migration = async (
-  migrations_home: string,
-  host: string,
-  username: string,
-  password: string,
-  db_name: string,
-  db_engine?: string,
-  timeout?: string,
+migrations_home: string, host: string, username: string, password: string, db_name: string, db_engine?: string, timeout?: string, ca_cert?: string | undefined, cert?: string | undefined, key?: string | undefined,
 ): Promise<void> => {
   const migrations = get_migrations(migrations_home);
 
-  await create_db(host, username, password, db_name, db_engine);
+  await create_db(host, username, password, db_name, db_engine, timeout, ca_cert, cert, key);
 
-  const client = connect(host, username, password, db_name, timeout);
+  const client = connect(host, username, password, db_name, timeout, ca_cert, cert, key);
 
   await init_migration_table(client);
 
@@ -279,6 +300,9 @@ const migrate = () => {
       'Client request timeout (milliseconds, default value 30000)',
       process.env.CH_MIGRATIONS_TIMEOUT,
     )
+    .option('--ca_cert <path>', 'CA certificate file path', process.env.CH_MIGRATIONS_CA_CERT)
+    .option('--cert <path>', 'Client certificate file path', process.env.CH_MIGRATIONS_CERT)
+    .option('--key <path>', 'Client key file path', process.env.CH_MIGRATIONS_KEY)
     .action(async (options: CliParameters) => {
       await migration(
         options.migrationsHome,
@@ -288,6 +312,9 @@ const migrate = () => {
         options.db,
         options.dbEngine,
         options.timeout,
+        options.ca_cert,
+        options.cert,
+        options.key
       );
     });
 
