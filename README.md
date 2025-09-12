@@ -34,6 +34,8 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
   Optional options
       --db-engine=<value>       ON CLUSTER and/or ENGINE for DB
                                   (default: 'ENGINE=Atomic')
+      --table-engine=<value>    Engine for the _migrations table
+                                  (default: 'MergeTree')
       --timeout=<value>         Client request timeout 
                                   (milliseconds, default: 30000)
 
@@ -45,9 +47,10 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
       CH_MIGRATIONS_DB          Database name (--db)
       CH_MIGRATIONS_HOME        Migrations' directory (--migrations-home)
 
-      CH_MIGRATIONS_DB_ENGINE   (optional) DB engine (--db-engine)
-      CH_MIGRATIONS_TIMEOUT     (optional) Client request timeout 
-                                  (--timeout)
+      CH_MIGRATIONS_DB_ENGINE     (optional) DB engine (--db-engine)
+      CH_MIGRATIONS_TABLE_ENGINE  (optional) Migrations table engine (--table-engine)
+      CH_MIGRATIONS_TIMEOUT       (optional) Client request timeout 
+                                    (--timeout)
 
   CLI executions examples
     settings are passed as command-line options
@@ -59,7 +62,8 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
       clickhouse-migrations migrate --host=http://localhost:8123 
       --user=default --password='' --db=analytics 
       --migrations-home=/app/clickhouse/migrations --timeout=60000 
-      --db-engine="ON CLUSTER default ENGINE=Replicated('{replica}')"    
+      --db-engine="ON CLUSTER default ENGINE=Replicated('{replica}')"
+      --table-engine="ReplicatedMergeTree('/clickhouse/tables/{database}/migrations', '{replica}')"    
 
     settings provided as environment variables
       clickhouse-migrations migrate
