@@ -36,6 +36,9 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
                                   (default: 'ENGINE=Atomic')
       --timeout=<value>         Client request timeout 
                                   (milliseconds, default: 30000)
+      --ca_cert=<path>          CA certificate file path
+      --cert=<path>             Client certificate file path
+      --key=<path>              Client key file path                            
 
   Environment variables
       Instead of options can be used environment variables.
@@ -48,6 +51,10 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
       CH_MIGRATIONS_DB_ENGINE   (optional) DB engine (--db-engine)
       CH_MIGRATIONS_TIMEOUT     (optional) Client request timeout 
                                   (--timeout)
+      CH_MIGRATIONS_CA_CERT     (optional) CA certificate file path
+      CH_MIGRATIONS_CERT        (optional) Client certificate file path
+      CH_MIGRATIONS_KEY         (optional) Client key file path
+
 
   CLI executions examples
     settings are passed as command-line options
