@@ -72,7 +72,6 @@ const create_db = async (
   try {
     await client.ping();
   } catch (e: unknown) {
-    console.log(e);
     log('error', `Failed to connect to ClickHouse`, (e as QueryError).message);
     process.exit(1);
   }
