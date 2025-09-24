@@ -5,10 +5,11 @@ import { migration } from '../src/migrate';
 jest.mock('@clickhouse/client', () => ({ createClient: () => createClient1 }));
 
 const createClient1 = {
-  query: jest.fn().mockImplementationOnce(() => Promise.resolve({ json: () => [] })), // return 0 rows
-  exec: jest.fn().mockImplementationOnce(() => Promise.resolve({})),
-  insert: jest.fn(),
-  close: jest.fn(),
+  query: jest.fn(() => Promise.resolve({ json: () => [] })),
+  exec: jest.fn(() => Promise.resolve({})),
+  insert: jest.fn(() => Promise.resolve({})),
+  close: jest.fn(() => Promise.resolve()),
+  ping: jest.fn(() => Promise.resolve()),
 };
 
 describe('Migration tests', () => {
@@ -20,9 +21,12 @@ describe('Migration tests', () => {
 
   // todo: remove only
   it.only('First migration', async () => {
-    const querySpy = jest.spyOn(createClient1, 'query');
-    const execSpy = jest.spyOn(createClient1, 'exec');
-    const insertSpy = jest.spyOn(createClient1, 'insert');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const querySpy = jest.spyOn(createClient1, 'query') as jest.MockedFunction<any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const execSpy = jest.spyOn(createClient1, 'exec') as jest.MockedFunction<any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const insertSpy = jest.spyOn(createClient1, 'insert') as jest.MockedFunction<any>;
 
     await migration('tests/migrations/one', 'http://sometesthost:8123', 'default', '', 'analytics');
 

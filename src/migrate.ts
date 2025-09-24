@@ -68,13 +68,15 @@ const create_db = async (
 ): Promise<void> => {
   // Don't specify database name when creating it - connect to default database
   const client = connect(host, username, password, undefined, timeout, ca_cert, cert, key);
+
   try {
     await client.ping();
-    log('info', `Successfully connected to ClickHouse`);
   } catch (e: unknown) {
+    console.log(e);
     log('error', `Failed to connect to ClickHouse`, (e as QueryError).message);
     process.exit(1);
   }
+
   const q = `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`;
 
   try {
@@ -262,7 +264,16 @@ const apply_migrations = async (
 };
 
 const migration = async (
-migrations_home: string, host: string, username: string, password: string, db_name: string, db_engine?: string, timeout?: string, ca_cert?: string | undefined, cert?: string | undefined, key?: string | undefined,
+  migrations_home: string,
+  host: string,
+  username: string,
+  password: string,
+  db_name: string,
+  db_engine?: string,
+  timeout?: string,
+  ca_cert?: string | undefined,
+  cert?: string | undefined,
+  key?: string | undefined,
 ): Promise<void> => {
   const migrations = get_migrations(migrations_home);
 
@@ -314,7 +325,7 @@ const migrate = () => {
         options.timeout,
         options.ca_cert,
         options.cert,
-        options.key
+        options.key,
       );
     });
 
