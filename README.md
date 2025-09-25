@@ -19,6 +19,8 @@ For migrations' content should be used correct SQL ClickHouse queries. Multiple 
 
 If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't exist, it will be created automatically.
 
+For TLS/HTTPS connections, you can provide a custom CA certificate and optional client certificate/key via the `--ca-cert`, `--cert`, and `--key` options (or the `CH_MIGRATIONS_CA_CERT`, `CH_MIGRATIONS_CERT`, and `CH_MIGRATIONS_KEY` environment variables).
+
 ```
   Usage
     $ clickhouse-migrations migrate <options>
@@ -36,6 +38,9 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
                                   (default: 'ENGINE=Atomic')
       --timeout=<value>         Client request timeout 
                                   (milliseconds, default: 30000)
+      --ca-cert=<path>          CA certificate file path
+      --cert=<path>             Client certificate file path
+      --key=<path>              Client key file path                            
 
   Environment variables
       Instead of options can be used environment variables.
@@ -48,6 +53,10 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
       CH_MIGRATIONS_DB_ENGINE   (optional) DB engine (--db-engine)
       CH_MIGRATIONS_TIMEOUT     (optional) Client request timeout 
                                   (--timeout)
+      CH_MIGRATIONS_CA_CERT     (optional) CA certificate file path
+      CH_MIGRATIONS_CERT        (optional) Client certificate file path
+      CH_MIGRATIONS_KEY         (optional) Client key file path
+
 
   CLI executions examples
     settings are passed as command-line options
@@ -66,6 +75,12 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
 
     settings provided partially through options and environment variables
       clickhouse-migrations migrate --timeout=60000
+
+    settings provided as options with TLS certificates
+      clickhouse-migrations migrate --host=https://localhost:8443
+      --user=default --password='' --db=analytics
+      --migrations-home=/app/clickhouse/migrations
+      --ca-cert=/app/certs/ca.pem --cert=/app/certs/client.crt --key=/app/certs/client.key
 ```
 
 Migration file example:

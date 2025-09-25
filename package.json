@@ -1,6 +1,6 @@
 {
   "name": "clickhouse-migrations",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "ClickHouse Migrations",
   "bin": {
     "clickhouse-migrations": "lib/cli.js"
@@ -17,6 +17,8 @@
   "scripts": {
     "build": "rm lib/*; tsc",
     "test": "jest --config jestconfig.json",
+    "test:unit": "jest --config jestconfig.json --testPathPatterns=\"\\.(unit|integration)\\.test\\.ts$\"",
+    "test:e2e": "jest --config jestconfig.json --testPathPatterns=\"\\.e2e\\.test\\.ts$\"",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\"",
     "lint": "eslint ./src",
     "prepare": "npm run build",
