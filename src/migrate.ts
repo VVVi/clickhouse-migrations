@@ -40,16 +40,25 @@ const connect = (
   }
 
   if (ca_cert) {
-    if (cert && key) {
-      db_params.tls = {
-        ca_cert: fs.readFileSync(ca_cert),
-        cert: fs.readFileSync(cert),
-        key: fs.readFileSync(key),
-      };
-    } else {
-      db_params.tls = {
-        ca_cert: fs.readFileSync(ca_cert),
-      };
+    try {
+      if (cert && key) {
+        db_params.tls = {
+          ca_cert: fs.readFileSync(ca_cert),
+          cert: fs.readFileSync(cert),
+          key: fs.readFileSync(key),
+        };
+      } else {
+        db_params.tls = {
+          ca_cert: fs.readFileSync(ca_cert),
+        };
+      }
+    } catch (e: unknown) {
+      log(
+        'error',
+        'Failed to read CA certificate file for TLS connection.',
+        e instanceof Error ? e.message : String(e),
+      );
+      process.exit(1);
     }
   }
   return createClient(db_params);
