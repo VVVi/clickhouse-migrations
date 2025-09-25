@@ -16,3 +16,21 @@ services:
     volumes:
       - './.docker/clickhouse/config.xml:/etc/clickhouse-server/config.xml'
       - './.docker/clickhouse/users.xml:/etc/clickhouse-server/users.xml'
+
+  clickhouse_tls:
+    build:
+      context: ./
+      dockerfile: .docker/clickhouse_tls/Dockerfile
+    container_name: 'clickhouse-server-tls'
+    environment:
+      CLICKHOUSE_SKIP_USER_SETUP: 1
+    ports:
+      - '8443:8443'
+      - '9440:9440'
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - './.docker/clickhouse_tls/config.xml:/etc/clickhouse-server/config.xml'
+      - './.docker/clickhouse_tls/users.xml:/etc/clickhouse-server/users.xml'
