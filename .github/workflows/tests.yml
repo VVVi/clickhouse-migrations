@@ -17,12 +17,12 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        node: [20, 22]
+        node: [20, 22, 24]
     steps:
       - uses: actions/checkout@main
 
       - name: Setup NodeJS ${{ matrix.node }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
 
@@ -36,7 +36,7 @@ jobs:
 
       - name: Unit testing
         run: |
-          npm run test
+          npm run test:unit
 
   node-integration-tests-local-single-node:
     needs: unit-tests
@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        node: [20, 22]
+        node: [20, 22, 24]
         clickhouse: [head, latest]
 
     steps:
@@ -59,7 +59,7 @@ jobs:
           down-flags: '--volumes'
 
       - name: Setup NodeJS ${{ matrix.node }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
 
@@ -91,3 +91,9 @@ jobs:
             echo "Got: $response"
             exit 1
           fi
+
+      - name: Run TLS CLI Integration Tests
+        run: npm test -- --testPathPatterns=tls.e2e.test.ts --verbose
+        timeout-minutes: 10
+        env:
+          CI: true
