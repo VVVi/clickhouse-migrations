@@ -36,7 +36,7 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
                                   (default: 'ENGINE=Atomic')
       --timeout=<value>         Client request timeout 
                                   (milliseconds, default: 30000)
-      --ca_cert=<path>          CA certificate file path
+      --ca-cert=<path>          CA certificate file path
       --cert=<path>             Client certificate file path
       --key=<path>              Client key file path                            
 

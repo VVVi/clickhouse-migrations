@@ -19,7 +19,7 @@ type CliParameters = {
   db: string;
   dbEngine?: string;
   timeout?: string;
-  ca_cert?: string;
+  caCert?: string;
   cert?: string;
   key?: string;
 };

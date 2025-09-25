@@ -310,7 +310,7 @@ const migrate = () => {
       'Client request timeout (milliseconds, default value 30000)',
       process.env.CH_MIGRATIONS_TIMEOUT,
     )
-    .option('--ca_cert <path>', 'CA certificate file path', process.env.CH_MIGRATIONS_CA_CERT)
+    .option('--ca-cert <path>', 'CA certificate file path', process.env.CH_MIGRATIONS_CA_CERT)
     .option('--cert <path>', 'Client certificate file path', process.env.CH_MIGRATIONS_CERT)
     .option('--key <path>', 'Client key file path', process.env.CH_MIGRATIONS_KEY)
     .action(async (options: CliParameters) => {
@@ -322,7 +322,7 @@ const migrate = () => {
         options.db,
         options.dbEngine,
         options.timeout,
-        options.ca_cert,
+        options.caCert,
         options.cert,
         options.key,
       );
