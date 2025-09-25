@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.0.5...v1.1.0) (2025-09-25)
+
+
+### Features
+
+* support tls connection ([#25](https://github.com/VVVi/clickhouse-migrations/issues/25)) ([#26](https://github.com/VVVi/clickhouse-migrations/issues/26)) ([#14](https://github.com/VVVi/clickhouse-migrations/issues/14)) ([e3bf5b5](https://github.com/VVVi/clickhouse-migrations/commit/e3bf5b54eb51213cb0172cda4008cc266b9fbd09))
+
 ## [1.0.5](https://github.com/VVVi/clickhouse-migrations/compare/v1.0.4...v1.0.5) (2025-08-09)
 
 
