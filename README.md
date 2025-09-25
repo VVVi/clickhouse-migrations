@@ -19,6 +19,8 @@ For migrations' content should be used correct SQL ClickHouse queries. Multiple 
 
 If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't exist, it will be created automatically.
 
+For TLS/HTTPS connections, you can provide a custom CA certificate and optional client certificate/key via the `--ca-cert`, `--cert`, and `--key` options (or the `CH_MIGRATIONS_CA_CERT`, `CH_MIGRATIONS_CERT`, and `CH_MIGRATIONS_KEY` environment variables).
+
 ```
   Usage
     $ clickhouse-migrations migrate <options>
@@ -73,6 +75,12 @@ If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't
 
     settings provided partially through options and environment variables
       clickhouse-migrations migrate --timeout=60000
+
+    settings provided as options with TLS certificates
+      clickhouse-migrations migrate --host=https://localhost:8443
+      --user=default --password='' --db=analytics
+      --migrations-home=/app/clickhouse/migrations
+      --ca-cert=/app/certs/ca.pem --cert=/app/certs/client.crt --key=/app/certs/client.key
 ```
 
 Migration file example:
