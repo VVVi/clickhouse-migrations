@@ -28,6 +28,20 @@ describe('Execution tests', () => {
     expect(result.stderr).toBe("error: required option '--host <name>' not specified\n");
   });
 
+  it('Status without parameters provided', async () => {
+    const result = await execute('node lib/cli.js status', '.');
+
+    expect(result.stderr).toBe("error: required option '--host <name>' not specified\n");
+  });
+
+  it('Status with environment variables, but no migration directory', async () => {
+    const result = await execute('node lib/cli.js status', { env: { ...process.env, ...envVars } });
+
+    expect(result.stderr).toBe(
+      '\x1B[36m clickhouse-migrations : \x1B[31m Error: no migration directory /app/clickhouse/migrations. Please create it. \n',
+    );
+  });
+
   it('No migration directory', async () => {
     const command =
       "node ./lib/cli.js  migrate --host=http://sometesthost:8123 --user=default --password='' --db=analytics --migrations-home=/app/clickhouse/migrations";
@@ -40,7 +54,7 @@ describe('Execution tests', () => {
   });
 
   it('Environment variables are provided, but no migration directory', async () => {
-    const result = await execute('node lib/cli.js migrate', { env: envVars });
+    const result = await execute('node lib/cli.js migrate', { env: { ...process.env, ...envVars } });
 
     expect(result.stderr).toBe(
       '\x1B[36m clickhouse-migrations : \x1B[31m Error: no migration directory /app/clickhouse/migrations. Please create it. \n',
