@@ -36,6 +36,8 @@ For TLS/HTTPS connections, you can provide a custom CA certificate and optional 
   Optional options
       --db-engine=<value>       ON CLUSTER and/or ENGINE for DB
                                   (default: 'ENGINE=Atomic')
+      --table-engine=<value>    Engine for the _migrations table
+                                  (default: 'MergeTree')
       --timeout=<value>         Client request timeout 
                                   (milliseconds, default: 30000)
       --ca-cert=<path>          CA certificate file path
@@ -51,6 +53,7 @@ For TLS/HTTPS connections, you can provide a custom CA certificate and optional 
       CH_MIGRATIONS_HOME        Migrations' directory (--migrations-home)
 
       CH_MIGRATIONS_DB_ENGINE   (optional) DB engine (--db-engine)
+      CH_MIGRATIONS_TABLE_ENGINE  (optional) Migrations table engine (--table-engine)      
       CH_MIGRATIONS_TIMEOUT     (optional) Client request timeout 
                                   (--timeout)
       CH_MIGRATIONS_CA_CERT     (optional) CA certificate file path
@@ -68,7 +71,8 @@ For TLS/HTTPS connections, you can provide a custom CA certificate and optional 
       clickhouse-migrations migrate --host=http://localhost:8123 
       --user=default --password='' --db=analytics 
       --migrations-home=/app/clickhouse/migrations --timeout=60000 
-      --db-engine="ON CLUSTER default ENGINE=Replicated('{replica}')"    
+      --db-engine="ON CLUSTER default ENGINE=Replicated('{replica}')"
+      --table-engine="ReplicatedMergeTree('/clickhouse/tables/{database}/migrations', '{replica}')"    
 
     settings provided as environment variables
       clickhouse-migrations migrate
