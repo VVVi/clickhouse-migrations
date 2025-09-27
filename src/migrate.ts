@@ -102,7 +102,7 @@ const create_db = async (
   await client.close();
 };
 
-const init_migration_table = async (client: ClickHouseClient): Promise<void> => {
+const init_migration_table = async (client: ClickHouseClient, table_engine: string = 'MergeTree'): Promise<void> => {
   const q = `CREATE TABLE IF NOT EXISTS _migrations (
       uid UUID DEFAULT generateUUIDv4(),
       version UInt32,
@@ -110,7 +110,7 @@ const init_migration_table = async (client: ClickHouseClient): Promise<void> => 
       migration_name String,
       applied_at DateTime DEFAULT now()
     )
-    ENGINE = MergeTree
+    ENGINE = ${table_engine}
     ORDER BY tuple(applied_at)`;
 
   try {
@@ -278,6 +278,7 @@ const migration = async (
   password: string,
   db_name: string,
   db_engine?: string,
+  table_engine?: string,
   timeout?: string,
   ca_cert?: string | undefined,
   cert?: string | undefined,
@@ -289,7 +290,7 @@ const migration = async (
 
   const client = connect(host, username, password, db_name, timeout, ca_cert, cert, key);
 
-  await init_migration_table(client);
+  await init_migration_table(client, table_engine);
 
   await apply_migrations(client, migrations, migrations_home);
 
@@ -315,6 +316,11 @@ const migrate = () => {
       process.env.CH_MIGRATIONS_DB_ENGINE,
     )
     .option(
+      '--table-engine <value>',
+      'Engine for the _migrations table (default: "MergeTree")',
+      process.env.CH_MIGRATIONS_TABLE_ENGINE,
+    )
+    .option(
       '--timeout <value>',
       'Client request timeout (milliseconds, default value 30000)',
       process.env.CH_MIGRATIONS_TIMEOUT,
@@ -330,6 +336,7 @@ const migrate = () => {
         options.password,
         options.db,
         options.dbEngine,
+        options.tableEngine,
         options.timeout,
         options.caCert,
         options.cert,
