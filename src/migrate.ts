@@ -85,7 +85,7 @@ const create_db = async (
     process.exit(1);
   }
 
-  // For community default DB engine is "Atomic", for Cloud is "Shared". If not set, correct default is used.
+  // In open source ClickHouse - default DB engine is "Atomic", for Cloud - "Shared". If not set, appropriate default is used.
   const q = db_engine
     ? `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`
     : `CREATE DATABASE IF NOT EXISTS "${db_name}"`;
