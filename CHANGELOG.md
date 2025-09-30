@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.0...v1.1.1) (2025-09-30)
+
+
+### Bug Fixes
+
+* set correct default db engine for opensource or cloud CH ([#30](https://github.com/VVVi/clickhouse-migrations/issues/30)) ([6b1f02a](https://github.com/VVVi/clickhouse-migrations/commit/6b1f02a717884ccf1a9734ee49377dae828f37f3))
+
 ## [1.1.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.0.5...v1.1.0) (2025-09-25)
 
 
