@@ -69,7 +69,7 @@ const create_db = async (
   username: string,
   password: string,
   db_name: string,
-  db_engine: string = 'ENGINE=Atomic',
+  db_engine?: string,
   timeout?: string,
   ca_cert?: string,
   cert?: string,
@@ -85,7 +85,10 @@ const create_db = async (
     process.exit(1);
   }
 
-  const q = `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`;
+  // In open source ClickHouse - default DB engine is "Atomic", for Cloud - "Shared". If not set, appropriate default is used.
+  const q = db_engine
+    ? `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`
+    : `CREATE DATABASE IF NOT EXISTS "${db_name}"`;
 
   try {
     await client.exec({
