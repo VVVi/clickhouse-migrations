@@ -69,7 +69,6 @@ const create_db = async (
   username: string,
   password: string,
   db_name: string,
-  db_engine: string = 'ENGINE=Atomic',
   timeout?: string,
   ca_cert?: string,
   cert?: string,
@@ -85,7 +84,7 @@ const create_db = async (
     process.exit(1);
   }
 
-  const q = `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`;
+  const q = `CREATE DATABASE IF NOT EXISTS "${db_name}"`;
 
   try {
     await client.exec({
@@ -277,7 +276,6 @@ const migration = async (
   username: string,
   password: string,
   db_name: string,
-  db_engine?: string,
   timeout?: string,
   ca_cert?: string | undefined,
   cert?: string | undefined,
@@ -285,7 +283,7 @@ const migration = async (
 ): Promise<void> => {
   const migrations = get_migrations(migrations_home);
 
-  await create_db(host, username, password, db_name, db_engine, timeout, ca_cert, cert, key);
+  await create_db(host, username, password, db_name, timeout, ca_cert, cert, key);
 
   const client = connect(host, username, password, db_name, timeout, ca_cert, cert, key);
 
@@ -329,7 +327,6 @@ const migrate = () => {
         options.user,
         options.password,
         options.db,
-        options.dbEngine,
         options.timeout,
         options.caCert,
         options.cert,
