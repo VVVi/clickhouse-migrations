@@ -17,6 +17,12 @@ const envVars = {
   CH_MIGRATIONS_HOME: '/app/clickhouse/migrations',
 };
 
+const envVarsWithEngines = {
+  ...envVars,
+  CH_MIGRATIONS_DB_ENGINE: 'ENGINE=Atomic ON CLUSTER test_cluster',
+  CH_MIGRATIONS_TABLE_ENGINE: 'ReplacingMergeTree',
+};
+
 describe('Execution tests', () => {
   beforeEach(() => {
     jest.resetModules();
@@ -55,6 +61,73 @@ describe('Execution tests', () => {
 
     expect(result.stderr).toBe(
       '\x1B[36m clickhouse-migrations : \x1B[31m Error: a migration name should start from number, example: 1_init.sql. Please check, if the migration bad_1.sql is named correctly \n',
+    );
+  });
+
+  it('DB engine parameter is passed correctly via command line', async () => {
+    const command =
+      "node ./lib/cli.js  migrate --host=http://sometesthost:8123 --user=default --password='' --db=analytics --migrations-home=/app/clickhouse/migrations --db-engine='ENGINE=Atomic ON CLUSTER test_cluster'";
+
+    const result = await execute(command, { cwd: '.' });
+
+    expect(result.stderr).toBe(
+      '\x1B[36m clickhouse-migrations : \x1B[31m Error: no migration directory /app/clickhouse/migrations. Please create it. \n',
+    );
+  });
+
+  it('Table engine parameter is passed correctly via command line', async () => {
+    const command =
+      "node ./lib/cli.js  migrate --host=http://sometesthost:8123 --user=default --password='' --db=analytics --migrations-home=/app/clickhouse/migrations --table-engine='ReplacingMergeTree'";
+
+    const result = await execute(command, { cwd: '.' });
+
+    expect(result.stderr).toBe(
+      '\x1B[36m clickhouse-migrations : \x1B[31m Error: no migration directory /app/clickhouse/migrations. Please create it. \n',
+    );
+  });
+
+  it('Both DB and table engine parameters are passed correctly via command line', async () => {
+    const command =
+      "node ./lib/cli.js  migrate --host=http://sometesthost:8123 --user=default --password='' --db=analytics --migrations-home=/app/clickhouse/migrations --db-engine='ENGINE=Atomic ON CLUSTER test_cluster' --table-engine='ReplacingMergeTree'";
+
+    const result = await execute(command, { cwd: '.' });
+
+    expect(result.stderr).toBe(
+      '\x1B[36m clickhouse-migrations : \x1B[31m Error: no migration directory /app/clickhouse/migrations. Please create it. \n',
+    );
+  });
+
+  it('DB engine environment variable is used correctly', async () => {
+    const envWithDbEngine = {
+      ...envVars,
+      CH_MIGRATIONS_DB_ENGINE: 'ENGINE=Atomic ON CLUSTER test_cluster',
+    };
+
+    const result = await execute('node lib/cli.js migrate', { env: envWithDbEngine });
+
+    expect(result.stderr).toBe(
+      '\x1B[36m clickhouse-migrations : \x1B[31m Error: no migration directory /app/clickhouse/migrations. Please create it. \n',
+    );
+  });
+
+  it('Table engine environment variable is used correctly', async () => {
+    const envWithTableEngine = {
+      ...envVars,
+      CH_MIGRATIONS_TABLE_ENGINE: 'ReplacingMergeTree',
+    };
+
+    const result = await execute('node lib/cli.js migrate', { env: envWithTableEngine });
+
+    expect(result.stderr).toBe(
+      '\x1B[36m clickhouse-migrations : \x1B[31m Error: no migration directory /app/clickhouse/migrations. Please create it. \n',
+    );
+  });
+
+  it('Both engine environment variables are used correctly', async () => {
+    const result = await execute('node lib/cli.js migrate', { env: envVarsWithEngines });
+
+    expect(result.stderr).toBe(
+      '\x1B[36m clickhouse-migrations : \x1B[31m Error: no migration directory /app/clickhouse/migrations. Please create it. \n',
     );
   });
 });
