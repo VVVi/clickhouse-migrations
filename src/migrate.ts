@@ -285,10 +285,13 @@ const migration = async (
   ca_cert?: string | undefined,
   cert?: string | undefined,
   key?: string | undefined,
+  skip_db_creation?: boolean,
 ): Promise<void> => {
   const migrations = get_migrations(migrations_home);
 
-  await create_db(host, username, password, db_name, db_engine, timeout, ca_cert, cert, key);
+  if (!skip_db_creation) {
+    await create_db(host, username, password, db_name, db_engine, timeout, ca_cert, cert, key);
+  }
 
   const client = connect(host, username, password, db_name, timeout, ca_cert, cert, key);
 
@@ -325,6 +328,7 @@ const migrate = () => {
     .option('--ca-cert <path>', 'CA certificate file path', process.env.CH_MIGRATIONS_CA_CERT)
     .option('--cert <path>', 'Client certificate file path', process.env.CH_MIGRATIONS_CERT)
     .option('--key <path>', 'Client key file path', process.env.CH_MIGRATIONS_KEY)
+    .option('--skip-db-creation', 'Skip database creation', process.env.CH_MIGRATIONS_SKIP_DB_CREATION === 'true')
     .action(async (options: CliParameters) => {
       await migration(
         options.migrationsHome,
@@ -337,6 +341,7 @@ const migrate = () => {
         options.caCert,
         options.cert,
         options.key,
+        options.skipDbCreation,
       );
     });
 
