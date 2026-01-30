@@ -2,11 +2,13 @@ import { describe, it, expect } from '@jest/globals';
 import exec from 'child_process';
 
 const execute = async (script: string, options: exec.ExecOptions) => {
-  return new Promise<{ error: exec.ExecException | null; stdout: string; stderr: string }>((resolve) => {
-    exec.exec(script, options, (error, stdout, stderr) => {
-      resolve({ error, stdout, stderr });
-    });
-  });
+  return new Promise<{ error: exec.ExecException | null; stdout: string | Buffer; stderr: string | Buffer }>(
+    (resolve) => {
+      exec.exec(script, options, (error, stdout, stderr) => {
+        resolve({ error, stdout, stderr });
+      });
+    },
+  );
 };
 
 const envVars = {
