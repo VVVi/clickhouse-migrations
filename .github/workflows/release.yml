@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
@@ -24,7 +29,9 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
       - run: npm ci
         if: ${{ steps.release.outputs.release_created }}
+      - run: npm run build --if-present
+        if: ${{ steps.release.outputs.release_created }}
+      - run: npm test
+        if: ${{ steps.release.outputs.release_created }}
       - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
         if: ${{ steps.release.outputs.release_created }}
