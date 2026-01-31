@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.2](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.1...v1.1.2) (2026-01-31)
+
+
+### Features
+
+* update package versions ([#37](https://github.com/VVVi/clickhouse-migrations/issues/37)) ([a32b490](https://github.com/VVVi/clickhouse-migrations/commit/a32b49046728394fc79ad4cdd08245d2cecffb24))
+
+
+### Miscellaneous Chores
+
+* release 1.1.2 ([3f9fbe8](https://github.com/VVVi/clickhouse-migrations/commit/3f9fbe83f60ca723eb02a654a7d042bac0284be0))
+
 ## [1.1.1](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.0...v1.1.1) (2025-09-30)
 
 
