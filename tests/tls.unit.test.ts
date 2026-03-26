@@ -6,7 +6,7 @@ import path from 'path';
 const mockCreateClient = jest.fn();
 const mockClickHouseClient = {
   query: jest.fn(() => Promise.resolve({ json: () => [] })),
-  exec: jest.fn(() => Promise.resolve({})),
+  command: jest.fn(() => Promise.resolve({})),
   insert: jest.fn(() => Promise.resolve({})),
   close: jest.fn(() => Promise.resolve()),
   ping: jest.fn(() => Promise.resolve()),

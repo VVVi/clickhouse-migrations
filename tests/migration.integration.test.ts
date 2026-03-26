@@ -6,7 +6,7 @@ jest.mock('@clickhouse/client', () => ({ createClient: () => createClient1 }));
 
 const createClient1 = {
   query: jest.fn(() => Promise.resolve({ json: () => [] })),
-  exec: jest.fn(() => Promise.resolve({})),
+  command: jest.fn(() => Promise.resolve({})),
   insert: jest.fn(() => Promise.resolve({})),
   close: jest.fn(() => Promise.resolve()),
   ping: jest.fn(() => Promise.resolve()),
@@ -24,23 +24,23 @@ describe('Migration tests', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const querySpy = jest.spyOn(createClient1, 'query') as jest.MockedFunction<any>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const execSpy = jest.spyOn(createClient1, 'exec') as jest.MockedFunction<any>;
+    const commandSpy = jest.spyOn(createClient1, 'command') as jest.MockedFunction<any>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const insertSpy = jest.spyOn(createClient1, 'insert') as jest.MockedFunction<any>;
 
     await migration('tests/migrations/one', 'http://sometesthost:8123', 'default', '', 'analytics');
 
-    expect(execSpy).toHaveBeenCalledTimes(3);
+    expect(commandSpy).toHaveBeenCalledTimes(3);
     expect(querySpy).toHaveBeenCalledTimes(1);
     expect(insertSpy).toHaveBeenCalledTimes(1);
 
-    expect(execSpy).toHaveBeenNthCalledWith(1, {
+    expect(commandSpy).toHaveBeenNthCalledWith(1, {
       query: 'CREATE DATABASE IF NOT EXISTS "analytics"',
       clickhouse_settings: {
         wait_end_of_query: 1,
       },
     });
-    expect(execSpy).toHaveBeenNthCalledWith(2, {
+    expect(commandSpy).toHaveBeenNthCalledWith(2, {
       query: `CREATE TABLE IF NOT EXISTS _migrations (
       uid UUID DEFAULT generateUUIDv4(),
       version UInt32,
@@ -54,7 +54,7 @@ describe('Migration tests', () => {
         wait_end_of_query: 1,
       },
     });
-    expect(execSpy).toHaveBeenNthCalledWith(3, {
+    expect(commandSpy).toHaveBeenNthCalledWith(3, {
       clickhouse_settings: { allow_experimental_json_type: '1' },
       query:
         'CREATE TABLE IF NOT EXISTS `events` ( `event_id` UInt64, `event_data` JSON ) ENGINE=MergeTree() ORDER BY (`event_id`) SETTINGS index_granularity = 8192',
