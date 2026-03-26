@@ -91,7 +91,7 @@ const create_db = async (
     : `CREATE DATABASE IF NOT EXISTS "${db_name}"`;
 
   try {
-    await client.exec({
+    await client.command({
       query: q,
       clickhouse_settings: {
         wait_end_of_query: 1,
@@ -117,7 +117,7 @@ const init_migration_table = async (client: ClickHouseClient): Promise<void> => 
     ORDER BY tuple(applied_at)`;
 
   try {
-    await client.exec({
+    await client.command({
       query: q,
       clickhouse_settings: {
         wait_end_of_query: 1,
@@ -235,7 +235,7 @@ const apply_migrations = async (
 
     for (const query of queries) {
       try {
-        await client.exec({
+        await client.command({
           query: query,
           clickhouse_settings: sets,
         });
