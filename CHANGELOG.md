@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.3](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.2...v1.1.3) (2026-03-26)
+
+
+### Bug Fixes
+
+* bump package versions ([34ee054](https://github.com/VVVi/clickhouse-migrations/commit/34ee054f9639ab32214fa1dd295bd5bab38270b1))
+* use command() instead of exec() for DDL statements ([#41](https://github.com/VVVi/clickhouse-migrations/issues/41)) ([eaf7002](https://github.com/VVVi/clickhouse-migrations/commit/eaf70027415c6ff1ef0bfa3778e44e68ded8c658)), closes [#40](https://github.com/VVVi/clickhouse-migrations/issues/40)
+
 ## [1.1.2](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.1...v1.1.2) (2026-01-31)
 
 
