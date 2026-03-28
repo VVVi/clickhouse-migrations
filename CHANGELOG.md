@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.4](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.3...v1.1.4) (2026-03-28)
+
+
+### Bug Fixes
+
+* bump packages for security fixes ([6c5aba2](https://github.com/VVVi/clickhouse-migrations/commit/6c5aba240628d6d1b83ed9de374a27d5970a5784))
+* set version by release please ([25c3924](https://github.com/VVVi/clickhouse-migrations/commit/25c392467004831f9913085ec358ce46f3a5fee2))
+* set version by release please ([25c3924](https://github.com/VVVi/clickhouse-migrations/commit/25c392467004831f9913085ec358ce46f3a5fee2))
+* set version by release please ([25c3924](https://github.com/VVVi/clickhouse-migrations/commit/25c392467004831f9913085ec358ce46f3a5fee2))
+* set version by release please ([25c3924](https://github.com/VVVi/clickhouse-migrations/commit/25c392467004831f9913085ec358ce46f3a5fee2))
+
 ## [1.1.3](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.2...v1.1.3) (2026-03-26)
 
 
