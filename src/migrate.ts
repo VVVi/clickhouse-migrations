@@ -5,6 +5,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 
 import { sql_queries, sql_sets } from './sql-parse';
+import { VERSION } from './version';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
   if (type === 'info') {
@@ -302,7 +303,7 @@ const migration = async (
 const migrate = () => {
   const program = new Command();
 
-  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('1.1.3');
+  program.name('clickhouse-migrations').description('ClickHouse migrations.').version(VERSION);
 
   program
     .command('migrate')
