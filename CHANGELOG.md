@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.4...v1.2.0) (2026-03-28)
+
+
+### Features
+
+* add migrations table engine configuration ([#29](https://github.com/VVVi/clickhouse-migrations/issues/29)) ([98515c6](https://github.com/VVVi/clickhouse-migrations/commit/98515c696e9116252a40358d19990aaa2a7ade6c))
+
 ## [1.1.4](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.3...v1.1.4) (2026-03-28)
 
 
