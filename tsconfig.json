@@ -6,10 +6,10 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,    
+    "forceConsistentCasingInFileNames": true,
 
     "declaration": true,
-    "outDir": "./lib"   
+    "outDir": "./lib"
   },
   "include": ["src", "types"],
   "exclude": ["node_modules", "tests"]

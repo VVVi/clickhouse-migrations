@@ -5,6 +5,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 
 import { sql_queries, sql_sets } from './sql-parse';
+import { VERSION } from './version';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
   if (type === 'info') {
@@ -69,7 +70,7 @@ const create_db = async (
   username: string,
   password: string,
   db_name: string,
-  db_engine: string = 'ENGINE=Atomic',
+  db_engine?: string,
   timeout?: string,
   ca_cert?: string,
   cert?: string,
@@ -85,10 +86,13 @@ const create_db = async (
     process.exit(1);
   }
 
-  const q = `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`;
+  // In open source ClickHouse - default DB engine is "Atomic", for Cloud - "Shared". If not set, appropriate default is used.
+  const q = db_engine
+    ? `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`
+    : `CREATE DATABASE IF NOT EXISTS "${db_name}"`;
 
   try {
-    await client.exec({
+    await client.command({
       query: q,
       clickhouse_settings: {
         wait_end_of_query: 1,
@@ -114,7 +118,7 @@ const init_migration_table = async (client: ClickHouseClient, table_engine: stri
     ORDER BY tuple(applied_at)`;
 
   try {
-    await client.exec({
+    await client.command({
       query: q,
       clickhouse_settings: {
         wait_end_of_query: 1,
@@ -232,7 +236,7 @@ const apply_migrations = async (
 
     for (const query of queries) {
       try {
-        await client.exec({
+        await client.command({
           query: query,
           clickhouse_settings: sets,
         });
@@ -300,7 +304,7 @@ const migration = async (
 const migrate = () => {
   const program = new Command();
 
-  program.name('clickhouse-migrations').description('ClickHouse migrations.').version('1.1.0');
+  program.name('clickhouse-migrations').description('ClickHouse migrations.').version(VERSION);
 
   program
     .command('migrate')
