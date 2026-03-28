@@ -22,6 +22,7 @@ type CliParameters = {
   caCert?: string;
   cert?: string;
   key?: string;
+  skipDbCreation?: boolean;
 };
 
 type QueryError = {

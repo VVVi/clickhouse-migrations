@@ -1,4 +1,3 @@
-
 # clickhouse-migrations
 
 > ClickHouse Migrations CLI
@@ -13,9 +12,9 @@ npm install clickhouse-migrations
 
 Create a directory, where migrations will be stored. It will be used as the value for the `--migrations-home` option (or for environment variable `CH_MIGRATIONS_HOME`).
 
-In the directory, create migration files, which should be named like this: `1_some_text.sql`, `2_other_text.sql`, `10_more_test.sql`. What's important here is that the migration version number should come first, followed by an underscore (`_`), and then any text can follow. The version number should increase for every next migration. Please note that once a migration file has been applied to the database, it cannot be modified or removed. 
+In the directory, create migration files, which should be named like this: `1_some_text.sql`, `2_other_text.sql`, `10_more_test.sql`. What's important here is that the migration version number should come first, followed by an underscore (`_`), and then any text can follow. The version number should increase for every next migration. Please note that once a migration file has been applied to the database, it cannot be modified or removed.
 
-For migrations' content should be used correct SQL ClickHouse queries. Multiple queries can be used in a single migration file, and each query should be terminated with a semicolon (;). The queries could be idempotent - for example: `CREATE TABLE IF NOT EXISTS table ...;` Clickhouse settings, that can be included at the query level, can be added like `SET allow_experimental_object_type = 1;`. For adding comments should be used `--`, `# `, `#!`. 
+For migrations' content should be used correct SQL ClickHouse queries. Multiple queries can be used in a single migration file, and each query should be terminated with a semicolon (;). The queries could be idempotent - for example: `CREATE TABLE IF NOT EXISTS table ...;` Clickhouse settings, that can be included at the query level, can be added like `SET allow_experimental_object_type = 1;`. For adding comments should be used `--`, `# `, `#!`.
 
 If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't exist, it will be created automatically.
 
@@ -26,7 +25,7 @@ For TLS/HTTPS connections, you can provide a custom CA certificate and optional 
     $ clickhouse-migrations migrate <options>
 
   Required options
-      --host=<name>             Clickhouse hostname 
+      --host=<name>             Clickhouse hostname
                                   (ex. https://clickhouse:8123)
       --user=<name>             Username
       --password=<password>     Password
@@ -36,11 +35,12 @@ For TLS/HTTPS connections, you can provide a custom CA certificate and optional 
   Optional options
       --db-engine=<value>       ON CLUSTER and/or ENGINE for DB
                                   (default: 'ENGINE=Atomic')
-      --timeout=<value>         Client request timeout 
+      --timeout=<value>         Client request timeout
                                   (milliseconds, default: 30000)
       --ca-cert=<path>          CA certificate file path
       --cert=<path>             Client certificate file path
-      --key=<path>              Client key file path                            
+      --key=<path>              Client key file path
+      --skip-db-creation        Skip database creation
 
   Environment variables
       Instead of options can be used environment variables.
@@ -51,24 +51,27 @@ For TLS/HTTPS connections, you can provide a custom CA certificate and optional 
       CH_MIGRATIONS_HOME        Migrations' directory (--migrations-home)
 
       CH_MIGRATIONS_DB_ENGINE   (optional) DB engine (--db-engine)
-      CH_MIGRATIONS_TIMEOUT     (optional) Client request timeout 
+      CH_MIGRATIONS_TIMEOUT     (optional) Client request timeout
                                   (--timeout)
       CH_MIGRATIONS_CA_CERT     (optional) CA certificate file path
       CH_MIGRATIONS_CERT        (optional) Client certificate file path
       CH_MIGRATIONS_KEY         (optional) Client key file path
+      CH_MIGRATIONS_SKIP_DB_CREATION
+                                (optional) Skip database creation
+                                  (--skip-db-creation)
 
 
   CLI executions examples
     settings are passed as command-line options
       clickhouse-migrations migrate --host=http://localhost:8123
-      --user=default --password='' --db=analytics 
+      --user=default --password='' --db=analytics
       --migrations-home=/app/clickhouse/migrations
 
     settings provided as options, including timeout and db-engine
-      clickhouse-migrations migrate --host=http://localhost:8123 
-      --user=default --password='' --db=analytics 
-      --migrations-home=/app/clickhouse/migrations --timeout=60000 
-      --db-engine="ON CLUSTER default ENGINE=Replicated('{replica}')"    
+      clickhouse-migrations migrate --host=http://localhost:8123
+      --user=default --password='' --db=analytics
+      --migrations-home=/app/clickhouse/migrations --timeout=60000
+      --db-engine="ON CLUSTER default ENGINE=Replicated('{replica}')"
 
     settings provided as environment variables
       clickhouse-migrations migrate
@@ -81,10 +84,16 @@ For TLS/HTTPS connections, you can provide a custom CA certificate and optional 
       --user=default --password='' --db=analytics
       --migrations-home=/app/clickhouse/migrations
       --ca-cert=/app/certs/ca.pem --cert=/app/certs/client.crt --key=/app/certs/client.key
+
+    skip database creation (assumes database already exists)
+      clickhouse-migrations migrate --host=http://localhost:8123
+      --user=default --password='' --db=analytics
+      --migrations-home=/app/clickhouse/migrations --skip-db-creation
 ```
 
 Migration file example:
 (e.g., located at /app/clickhouse/migrations/1_init.sql)
+
 ```
 -- an example of migration file 1_init.sql
 
@@ -96,8 +105,8 @@ CREATE TABLE IF NOT EXISTS events (
   event JSON
 )
 ENGINE=AggregatingMergeTree
-PARTITION BY toYYYYMM(timestamp) 
-SAMPLE BY session_id 
-ORDER BY (session_id) 
+PARTITION BY toYYYYMM(timestamp)
+SAMPLE BY session_id
+ORDER BY (session_id)
 SETTINGS index_granularity = 8192;
-```      
+```
