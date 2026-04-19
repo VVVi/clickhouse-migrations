@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.2.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.4...v1.2.0) (2026-03-28)
+
+
+### Features
+
+* add migrations table engine configuration ([#29](https://github.com/VVVi/clickhouse-migrations/issues/29)) ([98515c6](https://github.com/VVVi/clickhouse-migrations/commit/98515c696e9116252a40358d19990aaa2a7ade6c))
+
+## [1.1.4](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.3...v1.1.4) (2026-03-28)
+
+
+### Bug Fixes
+
+* bump packages for security fixes ([6c5aba2](https://github.com/VVVi/clickhouse-migrations/commit/6c5aba240628d6d1b83ed9de374a27d5970a5784))
+* set version by release please ([25c3924](https://github.com/VVVi/clickhouse-migrations/commit/25c392467004831f9913085ec358ce46f3a5fee2))
+* set version by release please ([25c3924](https://github.com/VVVi/clickhouse-migrations/commit/25c392467004831f9913085ec358ce46f3a5fee2))
+* set version by release please ([25c3924](https://github.com/VVVi/clickhouse-migrations/commit/25c392467004831f9913085ec358ce46f3a5fee2))
+* set version by release please ([25c3924](https://github.com/VVVi/clickhouse-migrations/commit/25c392467004831f9913085ec358ce46f3a5fee2))
+
+## [1.1.3](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.2...v1.1.3) (2026-03-26)
+
+
+### Bug Fixes
+
+* bump package versions ([34ee054](https://github.com/VVVi/clickhouse-migrations/commit/34ee054f9639ab32214fa1dd295bd5bab38270b1))
+* use command() instead of exec() for DDL statements ([#41](https://github.com/VVVi/clickhouse-migrations/issues/41)) ([eaf7002](https://github.com/VVVi/clickhouse-migrations/commit/eaf70027415c6ff1ef0bfa3778e44e68ded8c658)), closes [#40](https://github.com/VVVi/clickhouse-migrations/issues/40)
+
+## [1.1.2](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.1...v1.1.2) (2026-01-31)
+
+
+### Features
+
+* update package versions ([#37](https://github.com/VVVi/clickhouse-migrations/issues/37)) ([a32b490](https://github.com/VVVi/clickhouse-migrations/commit/a32b49046728394fc79ad4cdd08245d2cecffb24))
+
+
+### Miscellaneous Chores
+
+* release 1.1.2 ([3f9fbe8](https://github.com/VVVi/clickhouse-migrations/commit/3f9fbe83f60ca723eb02a654a7d042bac0284be0))
+
 ## [1.1.1](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.0...v1.1.1) (2025-09-30)
 
 

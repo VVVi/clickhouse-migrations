@@ -18,6 +18,7 @@ type CliParameters = {
   password: string;
   db: string;
   dbEngine?: string;
+  tableEngine?: string;
   timeout?: string;
   caCert?: string;
   cert?: string;
