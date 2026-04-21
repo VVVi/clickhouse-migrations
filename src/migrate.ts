@@ -75,6 +75,7 @@ const create_db = async (
   ca_cert?: string,
   cert?: string,
   key?: string,
+  skip_db_creation?: boolean,
 ): Promise<void> => {
   // Don't specify database name when creating it - connect to default database
   const client = connect(host, username, password, undefined, timeout, ca_cert, cert, key);
@@ -84,6 +85,36 @@ const create_db = async (
   } catch (e: unknown) {
     log('error', `Failed to connect to ClickHouse`, (e as QueryError).message);
     process.exit(1);
+  }
+
+  if (skip_db_creation) {
+    // Database creation is disabled - verify the database already exists.
+    let exists = false;
+    try {
+      const resultSet = await client.query({
+        query: `SELECT 1 AS ok FROM system.databases WHERE name = {db_name:String}`,
+        query_params: { db_name },
+        format: 'JSONEachRow',
+      });
+      const rows = (await resultSet.json()) as { ok: number }[];
+      exists = rows.length > 0;
+    } catch (e: unknown) {
+      log('error', `can't verify that the database ${db_name} exists.`, (e as QueryError).message);
+      await client.close();
+      process.exit(1);
+    }
+
+    if (!exists) {
+      log(
+        'error',
+        `the database ${db_name} doesn't exist and --skip-db-creation is set. Please create the database manually or remove --skip-db-creation.`,
+      );
+      await client.close();
+      process.exit(1);
+    }
+
+    await client.close();
+    return;
   }
 
   // In open source ClickHouse - default DB engine is "Atomic", for Cloud - "Shared". If not set, appropriate default is used.
@@ -287,10 +318,11 @@ const migration = async (
   ca_cert?: string | undefined,
   cert?: string | undefined,
   key?: string | undefined,
+  skip_db_creation?: boolean,
 ): Promise<void> => {
   const migrations = get_migrations(migrations_home);
 
-  await create_db(host, username, password, db_name, db_engine, timeout, ca_cert, cert, key);
+  await create_db(host, username, password, db_name, db_engine, timeout, ca_cert, cert, key, skip_db_creation);
 
   const client = connect(host, username, password, db_name, timeout, ca_cert, cert, key);
 
@@ -332,6 +364,7 @@ const migrate = () => {
     .option('--ca-cert <path>', 'CA certificate file path', process.env.CH_MIGRATIONS_CA_CERT)
     .option('--cert <path>', 'Client certificate file path', process.env.CH_MIGRATIONS_CERT)
     .option('--key <path>', 'Client key file path', process.env.CH_MIGRATIONS_KEY)
+    .option('--skip-db-creation', 'Skip database creation', process.env.CH_MIGRATIONS_SKIP_DB_CREATION === 'true')
     .action(async (options: CliParameters) => {
       await migration(
         options.migrationsHome,
@@ -345,6 +378,7 @@ const migrate = () => {
         options.caCert,
         options.cert,
         options.key,
+        options.skipDbCreation,
       );
     });
 

@@ -199,12 +199,12 @@ describe('TLS Configuration Unit Tests', () => {
         caCertPath,
       );
 
-      // Should have exactly 2 calls: one for DB creation, one for migrations
+      // Should have exactly 2 calls: one for DB creation (with ping), one for migrations
       expect(mockCreateClient).toHaveBeenCalledTimes(2);
 
       const calls = mockCreateClient.mock.calls as Array<[Record<string, unknown>]>;
 
-      // Both calls should have TLS configuration
+      // All calls should have TLS configuration
       calls.forEach((call) => {
         expect(call[0]).toHaveProperty('tls');
         const tlsConfig = call[0].tls as Record<string, Buffer>;
