@@ -16,7 +16,7 @@ In the directory, create migration files, which should be named like this: `1_so
 
 For migrations' content should be used correct SQL ClickHouse queries. Multiple queries can be used in a single migration file, and each query should be terminated with a semicolon (;). The queries could be idempotent - for example: `CREATE TABLE IF NOT EXISTS table ...;` Clickhouse settings, that can be included at the query level, can be added like `SET allow_experimental_object_type = 1;`. For adding comments should be used `--`, `# `, `#!`.
 
-If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't exist, it will be created automatically.
+If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't exist, it will be created automatically. To disable this behavior (for example, when the user has no privileges to create databases), use the `--skip-db-creation` option (or set `CH_MIGRATIONS_SKIP_DB_CREATION` to `'true'`); in that case the database must already exist.
 
 For TLS/HTTPS connections, you can provide a custom CA certificate and optional client certificate/key via the `--ca-cert`, `--cert`, and `--key` options (or the `CH_MIGRATIONS_CA_CERT`, `CH_MIGRATIONS_CERT`, and `CH_MIGRATIONS_KEY` environment variables).
 
@@ -60,7 +60,8 @@ For TLS/HTTPS connections, you can provide a custom CA certificate and optional 
       CH_MIGRATIONS_CERT        (optional) Client certificate file path
       CH_MIGRATIONS_KEY         (optional) Client key file path
       CH_MIGRATIONS_SKIP_DB_CREATION
-                                (optional) Skip database creation
+                                (optional) Skip database creation,
+                                  set to 'true' to enable
                                   (--skip-db-creation)
 
 
