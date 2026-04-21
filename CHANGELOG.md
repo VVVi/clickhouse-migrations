@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.2.0...v1.3.0) (2026-04-21)
+
+
+### Features
+
+* add --skip-db-creation option to allow migrations without CREATE DATABASE permissions ([e88eeb4](https://github.com/VVVi/clickhouse-migrations/commit/e88eeb4e3a0061eb594598a4a494d6d15d6e142e))
+
 ## [1.2.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.1.4...v1.2.0) (2026-03-28)
 
 
