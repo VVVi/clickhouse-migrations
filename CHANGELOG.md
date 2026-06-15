@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/VVVi/clickhouse-migrations/compare/v1.3.0...v1.3.1) (2026-06-15)
+
+
+### Miscellaneous Chores
+
+* release 1.3.1 ([afda0bb](https://github.com/VVVi/clickhouse-migrations/commit/afda0bb74a02c5d3ce66b6fb1473b99bf24392b4))
+
 ## [1.3.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.2.0...v1.3.0) (2026-04-21)
 
 
