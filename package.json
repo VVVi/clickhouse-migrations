@@ -15,7 +15,7 @@
   "author": "VVVi",
   "repository": "VVVi/clickhouse-migrations",
   "scripts": {
-    "build": "rm lib/*; tsc",
+    "build": "rm -rf lib/*; tsc",
     "test": "jest --config jestconfig.json",
     "test:unit": "jest --config jestconfig.json --testPathPatterns=\"\\.(unit|integration)\\.test\\.ts$\"",
     "test:e2e": "jest --config jestconfig.json --testPathPatterns=\"\\.e2e\\.test\\.ts$\"",
@@ -34,17 +34,23 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.19.37",
-    "@typescript-eslint/eslint-plugin": "^8.57.2",
-    "@typescript-eslint/parser": "^8.57.2",
-    "eslint": "^10.1.0",
+    "@types/node": "^20.19.43",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
+    "eslint": "^10.5.0",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.5",
-    "jest": "^30.3.0",
-    "prettier": "^3.8.1",
-    "ts-jest": "^29.4.6",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.2"
+    "eslint-plugin-prettier": "^5.5.6",
+    "jest": "^30.4.2",
+    "prettier": "^3.8.4",
+    "ts-jest": "^29.4.11",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.1"
+  },
+  "overrides": {
+    "js-yaml": "^4.2.0",
+    "@babel/core": "^7.29.7",
+    "test-exclude": "^8.0.0",
+    "glob": "^13.0.6"
   },
   "files": [
     "lib/**/*"

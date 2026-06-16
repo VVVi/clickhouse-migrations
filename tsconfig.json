@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2022",
     "module": "commonjs",
 
     "strict": true,
@@ -8,9 +8,12 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
 
+    "types": ["node", "jest"],
+
     "declaration": true,
+    "rootDir": "./src",
     "outDir": "./lib"
   },
-  "include": ["src", "types"],
+  "include": ["src"],
   "exclude": ["node_modules", "tests"]
 }
