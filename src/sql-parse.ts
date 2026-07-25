@@ -1,3 +1,28 @@
+// Substitute ${VAR} placeholders in migration content from environment variables.
+//
+// Opt-in via CH_MIGRATIONS_SUBSTITUTE_ENV=true, so existing migrations are
+// unaffected by default. Substitution happens at apply time only; callers
+// checksum the raw (pre-substitution) content, so a committed migration stays
+// stable across environments and secret rotations, and the substituted SQL is
+// never persisted. Useful for environment-specific, idempotent DDL such as a
+// dictionary whose SOURCE(...) points at a per-environment database.
+//
+// A referenced-but-unset variable throws (fail loud) rather than emitting a
+// literal ${...} into the SQL.
+const substitute_env = (content: string): string => {
+  if (process.env.CH_MIGRATIONS_SUBSTITUTE_ENV !== 'true') {
+    return content;
+  }
+
+  return content.replace(/\$\{(\w+)\}/g, (_match: string, name: string): string => {
+    const value = process.env[name];
+    if (value === undefined) {
+      throw new Error(`migration references \${${name}} but the environment variable ${name} is not set.`);
+    }
+    return value;
+  });
+};
+
 // Extract sql queries from migrations.
 const sql_queries = (content: string): string[] => {
   const queries = content
@@ -34,4 +59,4 @@ const sql_sets = (content: string) => {
   return sets;
 };
 
-export { sql_queries, sql_sets };
+export { sql_queries, sql_sets, substitute_env };
