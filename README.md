@@ -63,6 +63,10 @@ For TLS/HTTPS connections, you can provide a custom CA certificate and optional 
                                 (optional) Skip database creation,
                                   set to 'true' to enable
                                   (--skip-db-creation)
+      CH_MIGRATIONS_SUBSTITUTE_ENV
+                                (optional) Substitute ${VAR} in migration
+                                  files from the environment at apply time,
+                                  set to 'true' to enable
 
 
   CLI executions examples
@@ -99,7 +103,7 @@ For TLS/HTTPS connections, you can provide a custom CA certificate and optional 
 Migration file example:
 (e.g., located at /app/clickhouse/migrations/1_init.sql)
 
-```
+```sql
 -- an example of migration file 1_init.sql
 
 SET allow_experimental_json_type = 1;
@@ -115,3 +119,34 @@ SAMPLE BY session_id
 ORDER BY (session_id)
 SETTINGS index_granularity = 8192;
 ```
+
+### Environment variable substitution (optional)
+
+Some migrations need a value that differs per environment, for example: the host of a Postgres instance behind a `DICTIONARY`, a cluster name, a bucket, and so on.
+
+Enable `CH_MIGRATIONS_SUBSTITUTE_ENV=true` and `${VAR}` placeholders in migration files are replaced with the matching environment variables when the migration is applied. It's off by default, so existing migrations behave exactly as before.
+
+Rules:
+
+- `${NAME}` is replaced with the value of the `NAME` environment variable.
+- If `NAME` is unset, the migration fails - the placeholder is never left behind in the SQL.
+- To keep a literal `${NAME}` (for example in a comment or a string), escape it as `$${NAME}`.
+- A malformed (`${PG-HOST}`, `${}`) or unterminated (`${PG_HOST`) placeholder also fails, so nothing is ever silently passed through.
+
+Substitution is textual (like `envsubst`): it doesn't parse SQL and doesn't escape values, so anything placed inside quotes must be quoting-safe.
+
+A typical use is an idempotent dictionary pointing at a per-environment source:
+
+```sql
+CREATE OR REPLACE DICTIONARY my_db.dict_offers
+(
+    `id` UUID,
+    `name` String DEFAULT ''
+)
+PRIMARY KEY id
+SOURCE(POSTGRESQL(HOST '${PG_HOST}' PORT ${PG_PORT} USER '${PG_USER}' PASSWORD '${PG_PASSWORD}' DB '${PG_DB}' TABLE 'offers'))
+LIFETIME(MIN 0 MAX 300)
+LAYOUT(COMPLEX_KEY_HASHED());
+```
+
+_Please note:_ When substitution is enabled, the checksum is taken from the **raw file**, before substitution. This keeps a migration stable across environments and keeps secrets out of `_migrations`. Two consequences follow: an already-applied migration is not re-run when a variable changes (ship a new migration instead), and the substituted SQL still reaches ClickHouse, so it may appear in `system.query_log` or server logs.

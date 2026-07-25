@@ -1,3 +1,6 @@
+import fs from 'fs';
+import crypto from 'crypto';
+
 import { describe, it, expect, jest } from '@jest/globals';
 
 import { migration } from '../src/migrate';
@@ -178,5 +181,68 @@ describe('Migration tests', () => {
 
     exitSpy.mockRestore();
     errorSpy.mockRestore();
+  });
+});
+
+describe('Env var substitution at migration level', () => {
+  const OLD_ENV = process.env;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...OLD_ENV };
+  });
+
+  afterAll(() => {
+    process.env = OLD_ENV;
+  });
+
+  it('applies substituted SQL but stores the raw-file checksum', async () => {
+    process.env.CH_MIGRATIONS_SUBSTITUTE_ENV = 'true';
+    process.env.PG_HOST = 'pg.internal';
+    process.env.PG_PORT = '5432';
+    process.env.PG_DB = 'analytics';
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const commandSpy = jest.spyOn(createClient1, 'command') as jest.MockedFunction<any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const insertSpy = jest.spyOn(createClient1, 'insert') as jest.MockedFunction<any>;
+
+    await migration('tests/migrations/env', 'http://sometesthost:8123', 'default', '', 'analytics');
+
+    // client.command() receives the substituted SQL (placeholders -> env values).
+    expect(commandSpy).toHaveBeenNthCalledWith(3, {
+      clickhouse_settings: {},
+      query:
+        "CREATE OR REPLACE DICTIONARY dict_offers ( `id` UUID, `name` String DEFAULT '' ) PRIMARY KEY id SOURCE(POSTGRESQL(HOST 'pg.internal' PORT 5432 DB 'analytics' TABLE 'offers')) LIFETIME(MIN 0 MAX 300) LAYOUT(COMPLEX_KEY_HASHED())",
+    });
+
+    // _migrations receives the checksum of the original, unsubstituted file.
+    const raw = fs.readFileSync('tests/migrations/env/1_env.sql').toString();
+    const rawChecksum = crypto.createHash('md5').update(raw).digest('hex');
+
+    expect(insertSpy).toHaveBeenNthCalledWith(1, {
+      format: 'JSONEachRow',
+      table: '_migrations',
+      values: [{ checksum: rawChecksum, migration_name: '1_env.sql', version: 1 }],
+    });
+  });
+
+  it('preserves the original SQL when substitution is disabled', async () => {
+    delete process.env.CH_MIGRATIONS_SUBSTITUTE_ENV;
+    process.env.PG_HOST = 'pg.internal';
+    process.env.PG_PORT = '5432';
+    process.env.PG_DB = 'analytics';
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const commandSpy = jest.spyOn(createClient1, 'command') as jest.MockedFunction<any>;
+
+    await migration('tests/migrations/env', 'http://sometesthost:8123', 'default', '', 'analytics');
+
+    // The placeholders are left untouched - executed SQL matches the raw file.
+    expect(commandSpy).toHaveBeenNthCalledWith(3, {
+      clickhouse_settings: {},
+      query:
+        "CREATE OR REPLACE DICTIONARY dict_offers ( `id` UUID, `name` String DEFAULT '' ) PRIMARY KEY id SOURCE(POSTGRESQL(HOST '${PG_HOST}' PORT ${PG_PORT} DB '${PG_DB}' TABLE 'offers')) LIFETIME(MIN 0 MAX 300) LAYOUT(COMPLEX_KEY_HASHED())",
+    });
   });
 });
