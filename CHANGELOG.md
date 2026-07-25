@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.3.2...v1.4.0) (2026-07-25)
+
+
+### Features
+
+* opt-in ${VAR} env substitution in migration SQL  ([7a633f4](https://github.com/VVVi/clickhouse-migrations/commit/7a633f4b3c635e88a05055a3177a1644837f4d0e))
+
 ## [1.3.2](https://github.com/VVVi/clickhouse-migrations/compare/v1.3.1...v1.3.2) (2026-06-16)
 
 
