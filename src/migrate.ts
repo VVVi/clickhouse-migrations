@@ -1,11 +1,11 @@
 import { createClient } from '@clickhouse/client';
 import type { ClickHouseClient, ClickHouseClientConfigOptions } from '@clickhouse/client';
-import { Command } from 'commander';
 import fs from 'fs';
 import crypto from 'crypto';
 
 import { sql_queries, sql_sets } from './sql-parse';
 import { VERSION } from './version';
+import { parseArgs } from './arg-parse';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
   if (type === 'info') {
@@ -334,55 +334,22 @@ const migration = async (
 };
 
 const migrate = () => {
-  const program = new Command();
+  const options = parseArgs(process.argv, VERSION);
 
-  program.name('clickhouse-migrations').description('ClickHouse migrations.').version(VERSION);
-
-  program
-    .command('migrate')
-    .description('Apply migrations.')
-    .requiredOption('--host <name>', 'Clickhouse hostname (ex: http://clickhouse:8123)', process.env.CH_MIGRATIONS_HOST)
-    .requiredOption('--user <name>', 'Username', process.env.CH_MIGRATIONS_USER)
-    .requiredOption('--password <password>', 'Password', process.env.CH_MIGRATIONS_PASSWORD)
-    .requiredOption('--db <name>', 'Database name', process.env.CH_MIGRATIONS_DB)
-    .requiredOption('--migrations-home <dir>', "Migrations' directory", process.env.CH_MIGRATIONS_HOME)
-    .option(
-      '--db-engine <value>',
-      'ON CLUSTER and/or ENGINE clauses for database (default: "ENGINE=Atomic")',
-      process.env.CH_MIGRATIONS_DB_ENGINE,
-    )
-    .option(
-      '--table-engine <value>',
-      'Engine for the _migrations table (default: "MergeTree")',
-      process.env.CH_MIGRATIONS_TABLE_ENGINE,
-    )
-    .option(
-      '--timeout <value>',
-      'Client request timeout (milliseconds, default value 30000)',
-      process.env.CH_MIGRATIONS_TIMEOUT,
-    )
-    .option('--ca-cert <path>', 'CA certificate file path', process.env.CH_MIGRATIONS_CA_CERT)
-    .option('--cert <path>', 'Client certificate file path', process.env.CH_MIGRATIONS_CERT)
-    .option('--key <path>', 'Client key file path', process.env.CH_MIGRATIONS_KEY)
-    .option('--skip-db-creation', 'Skip database creation', process.env.CH_MIGRATIONS_SKIP_DB_CREATION === 'true')
-    .action(async (options: CliParameters) => {
-      await migration(
-        options.migrationsHome,
-        options.host,
-        options.user,
-        options.password,
-        options.db,
-        options.dbEngine,
-        options.tableEngine,
-        options.timeout,
-        options.caCert,
-        options.cert,
-        options.key,
-        options.skipDbCreation,
-      );
-    });
-
-  program.parse();
+  migration(
+    options.migrationsHome,
+    options.host,
+    options.user,
+    options.password,
+    options.db,
+    options.dbEngine,
+    options.tableEngine,
+    options.timeout,
+    options.caCert,
+    options.cert,
+    options.key,
+    options.skipDbCreation,
+  );
 };
 
 export { migrate, migration };

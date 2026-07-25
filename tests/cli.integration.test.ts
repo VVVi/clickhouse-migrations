@@ -31,7 +31,7 @@ describe('Execution tests', () => {
   it('No parameters provided', async () => {
     const result = await execute('node lib/cli.js migrate', { cwd: '.' });
 
-    expect(result.stderr).toBe("error: required option '--host <name>' not specified\n");
+    expect(result.stderr).toBe('Error: missing required option --host\n');
   });
 
   it('No migration directory', async () => {
