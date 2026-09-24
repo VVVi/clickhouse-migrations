@@ -71,6 +71,11 @@ jobs:
         run: |
           npm run build
 
+      - name: SQL compatibility tests
+        run: npm test -- --runInBand --testPathPatterns=sql.e2e.test.ts
+        env:
+          CH_MIGRATIONS_TEST_URL: http://localhost:8123
+
       - name: Test - apply migrations ./tests/migrations/few
         run: |
           node ./lib/cli.js migrate --host=http://localhost:8123 --user=default --password='' --db=analytics --migrations-home=./tests/migrations/few

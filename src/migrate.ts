@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import fs from 'fs';
 import crypto from 'crypto';
 
-import { sql_queries, sql_sets, substitute_env } from './sql-parse';
+import { sql_queries, substitute_env } from './sql-parse';
 import { VERSION } from './version';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
@@ -261,33 +261,23 @@ const apply_migrations = async (
       continue;
     }
 
-    // Substitute ${VAR} from the environment (opt-in) at apply time only. The
-    // checksum above is over the raw file, so it stays stable across environments.
-    let sql: string;
-    try {
-      sql = substitute_env(content);
-    } catch (e: unknown) {
-      log('error', `the migration ${migration.file} has an error.`, e instanceof Error ? e.message : String(e));
-      process.exit(1);
-    }
-
-    // Extract sql from the migration. Unterminated quotes/comments are reported here,
-    // before anything is sent to ClickHouse.
+    // Parse the entire file before executing its statements. Substitution is
+    // opt-in; the checksum above always uses the original file content.
     let queries: string[];
-    let sets: { [key: string]: string };
     try {
-      queries = sql_queries(sql);
-      sets = sql_sets(sql);
+      queries = sql_queries(substitute_env(content));
     } catch (e: unknown) {
       log('error', `the migration ${migration.file} has an error.`, e instanceof Error ? e.message : String(e));
       process.exit(1);
     }
 
+    // A fresh session keeps SET commands sequential and local to this file.
+    const session_id = crypto.randomUUID();
     for (const query of queries) {
       try {
         await client.command({
           query: query,
-          clickhouse_settings: sets,
+          session_id,
         });
       } catch (e: unknown) {
         if (applied_migrations) {

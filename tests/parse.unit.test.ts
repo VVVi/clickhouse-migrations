@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 
-import { sql_queries, sql_sets, substitute_env } from '../src/sql-parse';
+import { sql_queries, substitute_env } from '../src/sql-parse';
 
 describe('Sql query parse', () => {
   beforeEach(() => {
@@ -17,6 +17,13 @@ describe('Sql query parse', () => {
 });
 
 describe('Sql query parse: quoting and comments (issue #52)', () => {
+  it.each(['', ' \t\r\n ', ';;;', '-- SELECT 1;\n/* SET a = 1; */;'])(
+    'returns no queries or settings for empty SQL: %j',
+    (input) => {
+      expect(sql_queries(input)).toEqual([]);
+    },
+  );
+
   it("does not split on ';' inside a single-quoted string", () => {
     const input = "SELECT throwIf(count() > 0, 'view not stopped; see header') FROM system.view_refreshes;";
 
@@ -84,11 +91,63 @@ describe('Sql query parse: quoting and comments (issue #52)', () => {
     expect(sql_queries(input)).toEqual(["SELECT $$a; 'b' -- c$$", 'SELECT $tag$x; y$tag$']);
   });
 
+  it('accepts numeric dollar tags and does not mistake identifier suffixes for strings', () => {
+    expect(sql_queries('SELECT $1$a;b$1$; SELECT metric$tag$;')).toEqual(['SELECT $1$a;b$1$', 'SELECT metric$tag$']);
+  });
+
+  it('keeps tokens separated when removing comments and skips empty statements', () => {
+    expect(sql_queries('; /* header; */ ; SELECT/* gap */1; // comment;\nSELECT 2; -- end')).toEqual([
+      'SELECT 1',
+      'SELECT 2',
+    ]);
+    expect(sql_queries('/* only a comment */; -- end')).toEqual([]);
+  });
+
+  it.each(['"', '`'])('preserves escapes and comment markers inside %s identifiers', (quote) => {
+    const query = `SELECT ${quote}a${quote}${quote}b; -- c\\${quote}d${quote} FROM t`;
+    expect(sql_queries(`${query}; SELECT 2;`)).toEqual([query, 'SELECT 2']);
+  });
+
+  it.each(["'", '"', '`'])('distinguishes escaped backslashes from escaped %s quotes', (quote) => {
+    const endingInBackslash = `SELECT ${quote}value\\\\${quote}`;
+    const containingEscapedQuote = `SELECT ${quote}value\\\\\\${quote}; still quoted${quote}`;
+
+    expect(sql_queries(`${endingInBackslash}; ${containingEscapedQuote}; SELECT 2;`)).toEqual([
+      endingInBackslash,
+      containingEscapedQuote,
+      'SELECT 2',
+    ]);
+  });
+
+  it.each(["'", '"', '`'])('rejects a trailing backslash inside an unclosed %s quote', (quote) => {
+    expect(() => sql_queries(`SELECT ${quote}unfinished\\`)).toThrow(/unterminated .*line 1, column 8/);
+  });
+
+  it.each(['\n', '\r\n', '\r'])('ends line comments and reports error positions with %j line endings', (newline) => {
+    const prefix = `-- ignore ' ;${newline}SELECT 1;${newline}`;
+    expect(sql_queries(`${prefix}SELECT 2;`)).toEqual(['SELECT 1', 'SELECT 2']);
+    expect(() => sql_queries(`${prefix}  SELECT 'unfinished`)).toThrow(
+      'unterminated string literal starting at line 3, column 10',
+    );
+  });
+
+  it('ignores quotes and settings inside nested comments', () => {
+    expect(sql_queries(`/* ' " \` $tag$; /* nested */ SET a = 1; */ SELECT 1;`)).toEqual(['SELECT 1']);
+    expect(() => sql_queries('/* outer /* inner */ SELECT 1;')).toThrow(
+      'unterminated block comment starting at line 1, column 1',
+    );
+  });
+
+  it('closes dollar-quoted strings only at the matching, case-sensitive tag', () => {
+    const query = "SELECT $tag$one; $TAG$ two; $$ three; ' /* $tag$";
+    expect(sql_queries(`${query}; SELECT $$$$;`)).toEqual([query, 'SELECT $$$$']);
+    expect(() => sql_queries('SELECT $tag$value$TAG$;')).toThrow(/unterminated dollar-quoted string/);
+  });
+
   it('does not treat SET inside a string literal as a settings statement', () => {
     const input = "INSERT INTO t (s) VALUES ('SET a = 1');";
 
     expect(sql_queries(input)).toEqual(["INSERT INTO t (s) VALUES ('SET a = 1')"]);
-    expect(sql_sets(input)).toEqual({});
   });
 
   it('rejects an unterminated string, identifier, dollar-quote or block comment instead of swallowing the file', () => {
@@ -96,7 +155,7 @@ describe('Sql query parse: quoting and comments (issue #52)', () => {
       /unterminated string literal starting at line 1, column 18/,
     );
     expect(() => sql_queries('SELECT `a;')).toThrow(/unterminated quoted identifier/);
-    expect(() => sql_queries("SELECT '😀abc', 'unterminated")).toThrow(/line 1, column 16/);
+    expect(() => sql_queries("SELECT '\u{1D11E}abc', 'unterminated")).toThrow(/line 1, column 16/);
     expect(() => sql_queries('SELECT 1; SELECT $tag$oops; SET a=1; SELECT 2;')).toThrow(
       /unterminated dollar-quoted string \$tag\$/,
     );
@@ -106,57 +165,97 @@ describe('Sql query parse: quoting and comments (issue #52)', () => {
   });
 
   it('sends SET ROLE / SET DEFAULT ROLE / SET TRANSACTION SNAPSHOT as statements, not settings', () => {
-    const input = 'SET ROLE writer;\nSET DEFAULT ROLE ALL TO user1;\nSET max_threads = 2;\nSELECT 1;';
+    const input =
+      'SET ROLE writer;\nSET DEFAULT ROLE ALL TO user1;\nSET TRANSACTION SNAPSHOT 123;\nSET max_threads = 2;\nSELECT 1;';
 
-    expect(sql_queries(input)).toEqual(['SET ROLE writer', 'SET DEFAULT ROLE ALL TO user1', 'SELECT 1']);
-    expect(sql_sets(input)).toEqual({ max_threads: '2' });
+    expect(sql_queries(input)).toEqual([
+      'SET ROLE writer',
+      'SET DEFAULT ROLE ALL TO user1',
+      'SET TRANSACTION SNAPSHOT 123',
+      'SET max_threads = 2',
+      'SELECT 1',
+    ]);
   });
 
-  it('excludes SET statements from the queries regardless of case and line layout', () => {
+  it('keeps multiline SET statements in order regardless of case', () => {
     const input = 'set a = 1;\nSET b = 2,\n    c = 3;\nSELECT 1;';
 
-    expect(sql_queries(input)).toEqual(['SELECT 1']);
+    expect(sql_queries(input)).toEqual(['set a = 1', 'SET b = 2, c = 3', 'SELECT 1']);
   });
 });
 
-describe('Sql settings parse', () => {
-  beforeEach(() => {
-    jest.resetModules();
+describe('SQL delegated to ClickHouse', () => {
+  it.each([
+    'SET force_index_by_date',
+    "SET TIME ZONE 'UTC'",
+    "SET TIME ZONE = 'Europe/Amsterdam'",
+    "SET param_d = {'10': [11, 12], '13': [14, 15]}",
+    'SET param_tuple = (1, [2, 3])',
+    'SET max_threads = DEFAULT',
+    'SET size = 18446744073709551615, ratio = -1.25e-3',
+    String.raw`SET log_comment = 'a, b = c; \n\t\x41\%\\n\'it''s'`,
+    String.raw`SET log_comment = $tag$a, b; -- c\n$tag$`,
+    "SET log_comment = '  first\n\tsecond  '",
+    'SET param_table = "events"',
+  ])('preserves the statement for the server: %s', (statement) => {
+    expect(sql_queries(`${statement}; SELECT 1;`)).toEqual([statement, 'SELECT 1']);
   });
 
-  it('one set and comments with no end of lines', async () => {
-    const input = '-- any\nSET allow_experimental_json_type = 1;\n\n --set option\nSELECT * FROM events';
-
-    const output = { allow_experimental_json_type: '1' };
-
-    expect(sql_sets(input)).toEqual(output);
+  it('keeps repeated settings in their original positions', () => {
+    expect(sql_queries('SELECT 1; SET max_threads = 1; SELECT 2; SET max_threads = 2; SELECT 3;')).toEqual([
+      'SELECT 1',
+      'SET max_threads = 1',
+      'SELECT 2',
+      'SET max_threads = 2',
+      'SELECT 3',
+    ]);
   });
 
-  it('two sets and comments', async () => {
-    const input =
-      '-- any\nSET allow_experimental_json_type = 1; --set option\nSET allow_experimental_object_new = 1;\nSELECT * \n  --comment\n  FROM events\n';
+  it('removes comments between setting tokens while preserving inline query settings', () => {
+    expect(
+      sql_queries(
+        "SET/* options */max_threads/* name */=2,\nlog_comment='https://host'; SELECT 1 SETTINGS max_threads=3;",
+      ),
+    ).toEqual(["SET max_threads =2, log_comment='https://host'", 'SELECT 1 SETTINGS max_threads=3']);
+  });
+});
 
-    const output = { allow_experimental_json_type: '1', allow_experimental_object_new: '1' };
-
-    expect(sql_sets(input)).toEqual(output);
+describe('Inline INSERT data', () => {
+  it.each([
+    'INSERT INTO t FORMAT CSV\n1,hello;world\n2,next',
+    'INSERT INTO t (id, note) FORMAT TabSeparated\n1\ta\tb',
+    'INSERT INTO `format` FORMAT JSONEachRow\n{"value": "unclosed',
+    'insert into db.t format/* data */CSV\n1,value',
+    "INSERT INTO FUNCTION remote('host', db, t) FORMAT CSV\n1,value",
+    'SELECT 1; INSERT INTO t SETTINGS async_insert=0 FORMAT CSV\n1,value',
+    'INSERT INTO t FORMAT `CSV`\n1,value',
+    'WITH 1 AS n INSERT INTO t FORMAT CSV\n1,value',
+    'INSERT INTO TABLE select FORMAT CSV\n1,value',
+    'INSERT INTO TABLE values FORMAT CSV\n1,value',
+    'INSERT INTO "TABLE" FORMAT CSV\n1,value',
+    "INSERT INTO t SELECT * FROM input('id UInt8, note String') FORMAT CSV\n1,hello;world",
+    "INSERT INTO t SELECT * FROM (SELECT * FROM input('id UInt8')) FORMAT CSV\n1",
+    'INSERT INTO t SELECT * FROM "input"(\'id UInt8\') FORMAT CSV\n1',
+    "INSERT INTO t SELECT * FROM `input`/* data */('id UInt8') FORMAT CSV\n1",
+  ])('rejects non-SQL data before attempting to split it: %s', (input) => {
+    expect(() => sql_queries(input)).toThrow(/inline INSERT FORMAT data is not supported.*INSERT VALUES/);
   });
 
-  it('reads a multi-line SET with several settings (issue #52)', () => {
-    const input = 'SET a = 1,\n    b = 2;\nSELECT 1;';
-
-    expect(sql_sets(input)).toEqual({ a: '1', b: '2' });
-  });
-
-  it('keeps whitespace inside a quoted setting value and removes the quotes', () => {
-    const input = "SET some_string_setting = 'a b';\nSET other = 'it''s';\nSELECT 1;";
-
-    expect(sql_sets(input)).toEqual({ some_string_setting: 'a b', other: "it's" });
-  });
-
-  it("does not split a quoted value on ',' or '='", () => {
-    const input = "SET fmt = 'a, b = c', n = 5;";
-
-    expect(sql_sets(input)).toEqual({ fmt: 'a, b = c', n: '5' });
+  it.each([
+    "INSERT INTO t VALUES (1, 'FORMAT CSV; -- literal')",
+    'INSERT INTO format VALUES (1)',
+    'INSERT INTO TABLE format VALUES (1)',
+    'INSERT INTO TABLE select VALUES (1)',
+    'INSERT INTO TABLE values VALUES (1)',
+    'INSERT INTO db.format (format) VALUES (1)',
+    'INSERT INTO t SELECT format FROM source',
+    'INSERT INTO t SELECT * FROM input AS format WHERE format.id > 0',
+    "INSERT INTO t SELECT format('{}', 1)",
+    'SELECT 1 FORMAT JSONEachRow',
+    "INSERT INTO t SETTINGS format='CSV' VALUES (1)",
+    'INSERT INTO t SELECT 1 FORMAT CSV',
+  ])('allows SQL queries with FORMAT-like identifiers or output formatting: %s', (query) => {
+    expect(sql_queries(`${query};`)).toEqual([query]);
   });
 });
 

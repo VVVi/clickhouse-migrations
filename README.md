@@ -14,7 +14,37 @@ Create a directory, where migrations will be stored. It will be used as the valu
 
 In the directory, create migration files, which should be named like this: `1_some_text.sql`, `2_other_text.sql`, `10_more_test.sql`. What's important here is that the migration version number should come first, followed by an underscore (`_`), and then any text can follow. The version number should increase for every next migration. Please note that once a migration file has been applied to the database, it cannot be modified or removed.
 
-For migrations' content should be used correct SQL ClickHouse queries. Multiple queries can be used in a single migration file, and each query should be terminated with a semicolon (;). The file is split the way ClickHouse reads it: a `;` inside a string literal, a quoted identifier (`"..."`, `` `...` ``), a dollar-quoted string (`$tag$...$tag$`) or a comment does not end a statement. The queries could be idempotent - for example: `CREATE TABLE IF NOT EXISTS table ...;` Clickhouse settings, that can be included at the query level, can be added like `SET allow_experimental_object_type = 1;` (several per statement, `SET a = 1, b = 2;`, over several lines if needed); they apply to every query in the file. `SET ROLE`, `SET DEFAULT ROLE` and `SET TRANSACTION SNAPSHOT` are sent to ClickHouse as ordinary statements. Comments use `--`, `# `, `#!` (to end of line) or `/* ... */` (nested allowed) and are removed before sending. An unterminated string, identifier or block comment is reported as an error before anything is executed.
+Migration files contain ClickHouse SQL statements separated by semicolons (`;`). Semicolons and comment markers inside single-quoted strings, quoted identifiers (`"..."`, `` `...` ``), and dollar-quoted strings (`$tag$...$tag$` or `$$...$$`) are preserved. Whitespace inside quoted text is also preserved. Comments (`--`, `//`, `# `, `#!`, and nested `/* ... */`) are removed, and whitespace outside quoted text is collapsed.
+
+Statements execute in order within a fresh ClickHouse HTTP session for each migration file. Settings apply to subsequent statements in that file and do not carry over to the next file. The endpoint must support HTTP sessions and route requests for the same session to the same server.
+
+ClickHouse parses `SET` commands directly, so the syntax supported by your server is available, including multiple assignments, boolean shorthand, time zones, and compound query parameters:
+
+```sql
+SET max_threads = 2,
+    log_comment = 'migration; keep this text';
+SET force_index_by_date;
+SET TIME ZONE 'UTC';
+SET param_d = {'10': [11, 12], '13': [14, 15]};
+SELECT {d:Map(String, Array(UInt8))};
+```
+
+This changes the previous file-wide settings behavior: a later `SET` no longer changes earlier queries. Put settings before the queries that need them. `SET ROLE` also executes in order. Newer syntax still requires a ClickHouse version that supports it.
+
+Inline data using `INSERT ... FORMAT CSV`, `TabSeparated`, `JSONEachRow`, or other formats is rejected before any statement in that file executes. This includes `INSERT ... SELECT ... FROM input(...) FORMAT ...`. Its data cannot safely be split as SQL. Use `INSERT ... VALUES` or `INSERT ... SELECT` without inline data in migrations; load external data separately.
+
+The entire file is split before executing any of its statements. Unterminated quotes/comments and unsupported inline data cause an error identifying the migration file. SQL syntax, setting names, and setting values are validated by ClickHouse when executed. Database setup and earlier files may already have run, and server-side errors can still leave a file partially applied. Where appropriate, use idempotent statements such as `CREATE TABLE IF NOT EXISTS ...`.
+
+To run the SQL compatibility tests against a local test server:
+
+```sh
+npm run build
+CH_MIGRATIONS_TEST_URL=http://localhost:8123 npm test -- --runInBand --testPathPatterns=sql.e2e.test.ts
+```
+
+These tests create and remove uniquely named test databases. Without `CH_MIGRATIONS_TEST_URL`, the SQL compatibility suite is skipped.
+
+The full suite includes modern boolean shorthand and `SET TIME ZONE` syntax. To test ClickHouse 25.6 or 25.8, which support sessions but require explicit assignments such as `SET session_timezone = 'UTC'`, exclude that syntax test by adding `--testNamePattern='^(?!.*modern boolean)'` to the command above.
 
 If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't exist, it will be created automatically. To disable this behavior (for example, when the user has no privileges to create databases), use the `--skip-db-creation` option (or set `CH_MIGRATIONS_SKIP_DB_CREATION` to `'true'`); in that case the database must already exist.
 
