@@ -271,9 +271,17 @@ const apply_migrations = async (
       process.exit(1);
     }
 
-    // Extract sql from the migration.
-    const queries = sql_queries(sql);
-    const sets = sql_sets(sql);
+    // Extract sql from the migration. Unterminated quotes/comments are reported here,
+    // before anything is sent to ClickHouse.
+    let queries: string[];
+    let sets: { [key: string]: string };
+    try {
+      queries = sql_queries(sql);
+      sets = sql_sets(sql);
+    } catch (e: unknown) {
+      log('error', `the migration ${migration.file} has an error.`, e instanceof Error ? e.message : String(e));
+      process.exit(1);
+    }
 
     for (const query of queries) {
       try {
