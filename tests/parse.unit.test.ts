@@ -96,6 +96,7 @@ describe('Sql query parse: quoting and comments (issue #52)', () => {
       /unterminated string literal starting at line 1, column 18/,
     );
     expect(() => sql_queries('SELECT `a;')).toThrow(/unterminated quoted identifier/);
+    expect(() => sql_queries("SELECT '😀abc', 'unterminated")).toThrow(/line 1, column 16/);
     expect(() => sql_queries('SELECT 1; SELECT $tag$oops; SET a=1; SELECT 2;')).toThrow(
       /unterminated dollar-quoted string \$tag\$/,
     );

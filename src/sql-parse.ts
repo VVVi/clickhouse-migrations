@@ -64,7 +64,9 @@ const substitute_env = (content: string): string => {
 const describe_position = (content: string, index: number): string => {
   const before = content.slice(0, index);
   const line = before.split(/\r\n|\r|\n/).length;
-  const column = index - Math.max(before.lastIndexOf('\n'), before.lastIndexOf('\r'));
+  const lineStart = Math.max(before.lastIndexOf('\n'), before.lastIndexOf('\r')) + 1;
+  // count code points, not UTF-16 units, so an emoji earlier on the line does not shift the column
+  const column = Array.from(before.slice(lineStart)).length + 1;
   return `line ${line}, column ${column}`;
 };
 
