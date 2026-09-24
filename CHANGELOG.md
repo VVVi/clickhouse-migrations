@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/VVVi/clickhouse-migrations/compare/v1.4.0...v1.4.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* update dependencies to resolve vulnerabilities ([a004d7d](https://github.com/VVVi/clickhouse-migrations/commit/a004d7d1a1d50465f895deb9b6d7731f75bde571))
+
 ## [1.4.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.3.2...v1.4.0) (2026-07-25)
 
 
