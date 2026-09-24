@@ -16,35 +16,7 @@ In the directory, create migration files, which should be named like this: `1_so
 
 Migration files contain ClickHouse SQL statements separated by semicolons (`;`). Semicolons and comment markers inside single-quoted strings, quoted identifiers (`"..."`, `` `...` ``), and dollar-quoted strings (`$tag$...$tag$` or `$$...$$`) are preserved. Whitespace inside quoted text is also preserved. Comments (`--`, `//`, `# `, `#!`, and nested `/* ... */`) are removed, and whitespace outside quoted text is collapsed.
 
-Statements execute in order within a fresh ClickHouse HTTP session for each migration file. Settings apply to subsequent statements in that file and do not carry over to the next file. The endpoint must support HTTP sessions and route requests for the same session to the same server.
-
-ClickHouse parses `SET` commands directly, so the syntax supported by your server is available, including multiple assignments, boolean shorthand, time zones, and compound query parameters:
-
-```sql
-SET max_threads = 2,
-    log_comment = 'migration; keep this text';
-SET force_index_by_date;
-SET TIME ZONE 'UTC';
-SET param_d = {'10': [11, 12], '13': [14, 15]};
-SELECT {d:Map(String, Array(UInt8))};
-```
-
-This changes the previous file-wide settings behavior: a later `SET` no longer changes earlier queries. Put settings before the queries that need them. `SET ROLE` also executes in order. Newer syntax still requires a ClickHouse version that supports it.
-
-Inline data using `INSERT ... FORMAT CSV`, `TabSeparated`, `JSONEachRow`, or other formats is rejected before any statement in that file executes. This includes `INSERT ... SELECT ... FROM input(...) FORMAT ...`. Its data cannot safely be split as SQL. Use `INSERT ... VALUES` or `INSERT ... SELECT` without inline data in migrations; load external data separately.
-
-The entire file is split before executing any of its statements. Unterminated quotes/comments and unsupported inline data cause an error identifying the migration file. SQL syntax, setting names, and setting values are validated by ClickHouse when executed. Database setup and earlier files may already have run, and server-side errors can still leave a file partially applied. Where appropriate, use idempotent statements such as `CREATE TABLE IF NOT EXISTS ...`.
-
-To run the SQL compatibility tests against a local test server:
-
-```sh
-npm run build
-CH_MIGRATIONS_TEST_URL=http://localhost:8123 npm test -- --runInBand --testPathPatterns=sql.e2e.test.ts
-```
-
-These tests create and remove uniquely named test databases. Without `CH_MIGRATIONS_TEST_URL`, the SQL compatibility suite is skipped.
-
-The full suite includes modern boolean shorthand and `SET TIME ZONE` syntax. To test ClickHouse 25.6 or 25.8, which support sessions but require explicit assignments such as `SET session_timezone = 'UTC'`, exclude that syntax test by adding `--testNamePattern='^(?!.*modern boolean)'` to the command above.
+See [SQL execution and settings](#sql-execution-and-settings) below for details on settings, supported migration content, and error handling.
 
 If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't exist, it will be created automatically. To disable this behavior (for example, when the user has no privileges to create databases), use the `--skip-db-creation` option (or set `CH_MIGRATIONS_SKIP_DB_CREATION` to `'true'`); in that case the database must already exist.
 
@@ -180,3 +152,24 @@ LAYOUT(COMPLEX_KEY_HASHED());
 ```
 
 _Please note:_ When substitution is enabled, the checksum is taken from the **raw file**, before substitution. This keeps a migration stable across environments and keeps secrets out of `_migrations`. Two consequences follow: an already-applied migration is not re-run when a variable changes (ship a new migration instead), and the substituted SQL still reaches ClickHouse, so it may appear in `system.query_log` or server logs.
+
+## SQL execution and settings
+
+Statements execute in order within a fresh ClickHouse HTTP session for each migration file. Settings apply to subsequent statements in that file and do not carry over to the next file. The endpoint must support HTTP sessions and route requests for the same session to the same server.
+
+Use `SET` commands to configure settings and query parameters for subsequent statements. The syntax available depends on your ClickHouse server version:
+
+```sql
+SET max_threads = 2,
+    log_comment = 'migration; keep this text';
+SET force_index_by_date = 1;
+SET session_timezone = 'UTC';
+SET param_d = {'10': [11, 12], '13': [14, 15]};
+SELECT {d:Map(String, Array(UInt8))};
+```
+
+This changes the previous file-wide settings behavior: a later `SET` no longer changes earlier queries. Put settings before the queries that need them. `SET ROLE` also executes in order.
+
+Inline data using `INSERT ... FORMAT CSV`, `TabSeparated`, `JSONEachRow`, or other formats is not supported in migrations. This includes `INSERT ... SELECT ... FROM input(...) FORMAT ...`. Use `INSERT ... VALUES` or `INSERT ... SELECT` without inline data in migrations; load external data separately.
+
+Unterminated quotes/comments and unsupported inline data cause an error identifying the migration file before any statement in that file executes. ClickHouse validates SQL syntax, setting names, and setting values when each statement runs. Database setup and earlier files may already have run, and server-side errors can still leave a file partially applied. Where appropriate, use idempotent statements such as `CREATE TABLE IF NOT EXISTS ...`.
