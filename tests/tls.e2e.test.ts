@@ -95,14 +95,13 @@ describe('TLS CLI Integration Tests', () => {
         'node ' +
           cliPath +
           ' migrate --host=https://localhost:8443 --user=default --password= --db=tls_fail --migrations-home=' +
-          testMigrationsDir +
-          ' --dry-run',
+          testMigrationsDir,
         { timeout: 10000 },
       );
 
       fail('Expected command to fail');
     } catch (error: unknown) {
-      expect((error as Error).message).toMatch(/(certificate|SSL|TLS)/i);
+      expect((error as { stderr: string }).stderr).toMatch(/(certificate|SSL|TLS)/i);
     }
   }, 15000);
 
@@ -196,14 +195,13 @@ describe('TLS CLI Integration Tests', () => {
           ' migrate --host=https://localhost:8443 --user=default --password= --db=tls_invalid --migrations-home=' +
           testMigrationsDir +
           ' --ca-cert=' +
-          invalidCertPath +
-          ' --dry-run',
+          invalidCertPath,
         { timeout: 10000 },
       );
 
       fail('Expected command to fail with invalid certificate');
     } catch (error: unknown) {
-      expect((error as Error).message).toMatch(/(certificate|SSL|TLS|PEM)/i);
+      expect((error as { stderr: string }).stderr).toMatch(/(certificate|SSL|TLS|PEM)/i);
     } finally {
       // Clean up
       if (fs.existsSync(invalidCertPath)) {

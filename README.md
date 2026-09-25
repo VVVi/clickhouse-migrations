@@ -14,7 +14,9 @@ Create a directory, where migrations will be stored. It will be used as the valu
 
 In the directory, create migration files, which should be named like this: `1_some_text.sql`, `2_other_text.sql`, `10_more_test.sql`. What's important here is that the migration version number should come first, followed by an underscore (`_`), and then any text can follow. The version number should increase for every next migration. Please note that once a migration file has been applied to the database, it cannot be modified or removed.
 
-For migrations' content should be used correct SQL ClickHouse queries. Multiple queries can be used in a single migration file, and each query should be terminated with a semicolon (;). The queries could be idempotent - for example: `CREATE TABLE IF NOT EXISTS table ...;` Clickhouse settings, that can be included at the query level, can be added like `SET allow_experimental_object_type = 1;`. For adding comments should be used `--`, `# `, `#!`.
+Migration files contain ClickHouse SQL statements separated by semicolons (`;`). Semicolons and comment markers inside single-quoted strings, quoted identifiers (`"..."`, `` `...` ``), and dollar-quoted strings (`$tag$...$tag$` or `$$...$$`) are preserved. Whitespace inside quoted text is also preserved. In SQL, comments (`--`, `//`, `# `, `#!`, and nested `/* ... */`) are removed, and whitespace outside quoted text is collapsed. Inline formatted data is preserved separately as described below.
+
+See [SQL execution and settings](#sql-execution-and-settings) below for details on settings, supported migration content, and error handling.
 
 If the database provided in the `--db` option (or in `CH_MIGRATIONS_DB`) doesn't exist, it will be created automatically. To disable this behavior (for example, when the user has no privileges to create databases), use the `--skip-db-creation` option (or set `CH_MIGRATIONS_SKIP_DB_CREATION` to `'true'`); in that case the database must already exist.
 
@@ -150,3 +152,28 @@ LAYOUT(COMPLEX_KEY_HASHED());
 ```
 
 _Please note:_ When substitution is enabled, the checksum is taken from the **raw file**, before substitution. This keeps a migration stable across environments and keeps secrets out of `_migrations`. Two consequences follow: an already-applied migration is not re-run when a variable changes (ship a new migration instead), and the substituted SQL still reaches ClickHouse, so it may appear in `system.query_log` or server logs.
+
+## SQL execution and settings
+
+Queries execute in file order. Assignment-style `SET name = value` statements are collected before executing the file: the last assignment to each setting applies to **every query in that file**, including queries written before the `SET`. This preserves the package's existing behavior. Settings do not carry over to the next migration file.
+
+Settings are sent with each HTTP request, overriding defaults supplied in the host URL. This works without shared session state when a load balancer routes requests to different servers, and also supports HTTP parameters such as `wait_end_of_query`.
+
+Use assignment-style `SET` commands for settings and query parameters. Quoted string values, multiline assignments and compound parameter values are supported; the available setting names and values depend on your ClickHouse version:
+
+```sql
+SET max_threads = 2,
+    log_comment = 'migration; keep this text';
+SET wait_end_of_query = 1;
+SET session_timezone = 'UTC';
+SET param_d = {'10': [11, 12], '13': [14, 15]};
+SELECT {d:Map(String, Array(UInt8))};
+```
+
+For a setting specific to one query, use that query's `SETTINGS` clause where ClickHouse supports it. Commands requiring shared session state, such as `SET ROLE` followed by another query, are not supported. Use `SET session_timezone = 'UTC'` to configure the timezone for the file.
+
+Inline `INSERT ... FORMAT` data is accepted, including `INSERT ... SELECT ... FROM input(...) FORMAT ...`. `FORMAT Values` uses the same quote handling as `INSERT ... VALUES`. For other formats, everything after the format name is preserved verbatim up to the next semicolon or the end of the file: tabs, newlines, quotes and comment markers remain data.
+
+Raw formats retain the legacy semicolon delimiter, even inside quoted data. Payloads containing semicolons should use `INSERT ... VALUES` or be loaded separately. ClickHouse validates the data format; this package does not parse CSV, JSON or other raw formats.
+
+Unterminated SQL quotes/comments and malformed setting assignments cause an error identifying the migration file before any query in that file executes. ClickHouse validates SQL syntax, setting names, setting values and inline data when each query runs. Database setup and earlier files may already have run, and server-side errors can still leave a file partially applied. Where appropriate, use idempotent statements such as `CREATE TABLE IF NOT EXISTS ...`.

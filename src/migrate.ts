@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import fs from 'fs';
 import crypto from 'crypto';
 
-import { sql_queries, sql_sets, substitute_env } from './sql-parse';
+import { parse_migration_sql, substitute_env } from './sql-parse';
 import { VERSION } from './version';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
@@ -261,25 +261,27 @@ const apply_migrations = async (
       continue;
     }
 
-    // Substitute ${VAR} from the environment (opt-in) at apply time only. The
-    // checksum above is over the raw file, so it stays stable across environments.
-    let sql: string;
+    // Parse the entire file before executing its statements. Substitution is
+    // opt-in; the checksum above always uses the original file content.
+    let queries: string[];
+    let settings: Record<string, string>;
     try {
-      sql = substitute_env(content);
+      ({ queries, settings } = parse_migration_sql(substitute_env(content)));
     } catch (e: unknown) {
       log('error', `the migration ${migration.file} has an error.`, e instanceof Error ? e.message : String(e));
       process.exit(1);
     }
 
-    // Extract sql from the migration.
-    const queries = sql_queries(sql);
-    const sets = sql_sets(sql);
-
+    // Keep the established file-wide SET behavior: the last assignment wins,
+    // including for queries earlier in the file. Send settings on every request
+    // instead of using sessions, whose state is lost if a load balancer routes
+    // the next query to another server. Per-query settings also override host
+    // URL defaults and support HTTP parameters such as wait_end_of_query.
     for (const query of queries) {
       try {
         await client.command({
           query: query,
-          clickhouse_settings: sets,
+          clickhouse_settings: settings,
         });
       } catch (e: unknown) {
         if (applied_migrations) {

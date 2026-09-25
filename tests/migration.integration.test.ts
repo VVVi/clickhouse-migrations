@@ -1,5 +1,7 @@
 import fs from 'fs';
 import crypto from 'crypto';
+import os from 'os';
+import path from 'path';
 
 import { describe, it, expect, jest } from '@jest/globals';
 
@@ -14,8 +16,8 @@ const createClient1 = {
     }
     return Promise.resolve({ json: () => [] });
   }),
-  command: jest.fn(() => Promise.resolve({})),
-  insert: jest.fn(() => Promise.resolve({})),
+  command: jest.fn<(params: unknown) => Promise<object>>(() => Promise.resolve({})),
+  insert: jest.fn<(params: unknown) => Promise<object>>(() => Promise.resolve({})),
   close: jest.fn(() => Promise.resolve()),
   ping: jest.fn(() => Promise.resolve()),
 };
@@ -244,5 +246,150 @@ describe('Env var substitution at migration level', () => {
       query:
         "CREATE OR REPLACE DICTIONARY dict_offers ( `id` UUID, `name` String DEFAULT '' ) PRIMARY KEY id SOURCE(POSTGRESQL(HOST '${PG_HOST}' PORT ${PG_PORT} DB '${PG_DB}' TABLE 'offers')) LIFETIME(MIN 0 MAX 300) LAYOUT(COMPLEX_KEY_HASHED())",
     });
+  });
+});
+
+describe('SQL parsing at migration level', () => {
+  const originalEnv = process.env;
+  let migrationsDir: string;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...originalEnv };
+    migrationsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clickhouse-migrations-parse-'));
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    fs.rmSync(migrationsDir, { recursive: true, force: true });
+  });
+
+  it('attaches file-wide settings to every query and records the original checksum', async () => {
+    const content =
+      "SELECT 'line1; -- comment\n  line2';\nSET max_threads = 1,\n log_comment = 'ticket; -- # 42';\nSELECT 2;";
+    fs.writeFileSync(path.join(migrationsDir, '1_parse.sql'), content);
+
+    await migration(migrationsDir, 'http://sometesthost:8123', 'default', '', 'analytics');
+
+    const settings = { max_threads: '1', log_comment: 'ticket; -- # 42' };
+    expect(createClient1.command).toHaveBeenCalledTimes(4);
+    expect(createClient1.command).toHaveBeenNthCalledWith(3, {
+      query: "SELECT 'line1; -- comment\n  line2'",
+      clickhouse_settings: settings,
+    });
+    expect(createClient1.command).toHaveBeenNthCalledWith(4, {
+      query: 'SELECT 2',
+      clickhouse_settings: settings,
+    });
+    expect(createClient1.insert).toHaveBeenCalledWith({
+      table: '_migrations',
+      values: [
+        { version: 1, checksum: crypto.createHash('md5').update(content).digest('hex'), migration_name: '1_parse.sql' },
+      ],
+      format: 'JSONEachRow',
+    });
+  });
+
+  it('uses the last setting for the entire file without leaking it into the next file', async () => {
+    fs.writeFileSync(
+      path.join(migrationsDir, '1_first.sql'),
+      'SELECT 1; SET max_threads = 1; SELECT 2; SET max_threads = 2, wait_end_of_query = 1;',
+    );
+    fs.writeFileSync(path.join(migrationsDir, '2_second.sql'), 'SELECT 3;');
+
+    await migration(migrationsDir, 'http://sometesthost:8123', 'default', '', 'analytics');
+
+    expect(createClient1.command.mock.calls.slice(2).map(([command]) => command)).toEqual([
+      { query: 'SELECT 1', clickhouse_settings: { max_threads: '2', wait_end_of_query: '1' } },
+      { query: 'SELECT 2', clickhouse_settings: { max_threads: '2', wait_end_of_query: '1' } },
+      { query: 'SELECT 3', clickhouse_settings: {} },
+    ]);
+    expect(createClient1.insert).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves separators and comments introduced into quoted SQL by environment substitution', async () => {
+    process.env.CH_MIGRATIONS_SUBSTITUTE_ENV = 'true';
+    process.env.SQL_PARSE_TEST_VALUE = 'first; -- # /* literal */\n  second';
+    const content = "SET log_comment = '${SQL_PARSE_TEST_VALUE}'; SELECT '${SQL_PARSE_TEST_VALUE}';";
+    fs.writeFileSync(path.join(migrationsDir, '1_parse.sql'), content);
+
+    await migration(migrationsDir, 'http://sometesthost:8123', 'default', '', 'analytics');
+
+    expect(createClient1.command).toHaveBeenCalledTimes(3);
+    expect(createClient1.command).toHaveBeenNthCalledWith(3, {
+      query: "SELECT 'first; -- # /* literal */\n  second'",
+      clickhouse_settings: { log_comment: 'first; -- # /* literal */\n  second' },
+    });
+    expect(createClient1.insert).toHaveBeenCalledWith({
+      table: '_migrations',
+      values: [
+        { version: 1, checksum: crypto.createHash('md5').update(content).digest('hex'), migration_name: '1_parse.sql' },
+      ],
+      format: 'JSONEachRow',
+    });
+  });
+
+  it('stops after a server error without recording the failed file or executing later statements', async () => {
+    fs.writeFileSync(path.join(migrationsDir, '1_parse.sql'), 'SELECT 1; SELECT 2; SELECT 3;');
+    createClient1.command
+      .mockResolvedValueOnce({}) // Create the database.
+      .mockResolvedValueOnce({}) // Create the migration table.
+      .mockResolvedValueOnce({}) // Execute SELECT 1.
+      .mockRejectedValueOnce(new Error('query failed')); // Fail SELECT 2.
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit');
+    });
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await expect(migration(migrationsDir, 'http://sometesthost:8123', 'default', '', 'analytics')).rejects.toThrow(
+        'process.exit',
+      );
+      expect(createClient1.command).toHaveBeenCalledTimes(4);
+      expect(createClient1.command).toHaveBeenLastCalledWith({ query: 'SELECT 2', clickhouse_settings: {} });
+      expect(createClient1.insert).not.toHaveBeenCalled();
+      const message = errorSpy.mock.calls.map((args) => args.join(' ')).join('\n');
+      expect(message).toContain('1_parse.sql');
+      expect(message).toContain('query failed');
+    } finally {
+      exitSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
+  it.each([
+    ["SELECT 1; SELECT 'unclosed", 'unterminated string literal'],
+    ['SELECT 1; SELECT "unclosed', 'unterminated quoted identifier'],
+    ['SELECT 1; SELECT `unclosed', 'unterminated quoted identifier'],
+    ['SELECT 1; /* unclosed', 'unterminated block comment'],
+    ['SELECT 1; SELECT $tag$unclosed', 'unterminated dollar-quoted string'],
+    ['SELECT 1; SET max_threads = 1, invalid;', 'invalid SET assignment'],
+    ["SELECT 1; SELECT '${SQL_PARSE_TEST_MISSING}';", 'environment variable SQL_PARSE_TEST_MISSING is not set'],
+    ["SELECT 1; SELECT '${SQL_PARSE_TEST_VALUE}';", 'unterminated string literal'],
+  ])('stops before executing any statement from a malformed file: %s', async (content, error) => {
+    process.env.CH_MIGRATIONS_SUBSTITUTE_ENV = 'true';
+    delete process.env.SQL_PARSE_TEST_MISSING;
+    process.env.SQL_PARSE_TEST_VALUE = "'";
+    fs.writeFileSync(path.join(migrationsDir, '1_parse.sql'), content);
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit');
+    });
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await expect(migration(migrationsDir, 'http://sometesthost:8123', 'default', '', 'analytics')).rejects.toThrow(
+        'process.exit',
+      );
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const message = errorSpy.mock.calls.map((args) => args.join(' ')).join('\n');
+      expect(message).toContain('1_parse.sql');
+      expect(message).toContain(error);
+      // Database/table initialization happens first, but no SQL from this file runs.
+      expect(createClient1.command).toHaveBeenCalledTimes(2);
+      expect(createClient1.insert).not.toHaveBeenCalled();
+    } finally {
+      exitSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
   });
 });
