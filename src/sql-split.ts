@@ -11,8 +11,8 @@ const describe_position = (content: string, index: number): string => {
 const isSpace = (ch: string): boolean =>
   ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r' || ch === '\f' || ch === '\v';
 
-// Split only outside quoted text and comments. ClickHouse parses the SQL itself.
-const split_statements = (content: string): string[] => {
+// Both statements and SET assignments use the same quoting/comment rules.
+const split_sql = (content: string, separator: ';' | ','): string[] => {
   const statements: string[] = [];
   let current = '';
   let pendingSpace = false; // whitespace seen in plain SQL, emitted lazily as one space
@@ -25,7 +25,7 @@ const split_statements = (content: string): string[] => {
   let previousToken = '';
 
   const rememberToken = (token: string, quoted = false): void => {
-    inputFunctionExpected = insertStatement && token === 'INPUT' && ['FROM', 'JOIN'].includes(previousToken);
+    inputFunctionExpected = token === 'INPUT' && ['FROM', 'JOIN'].includes(previousToken);
     previousToken = quoted ? 'quoted' : token;
   };
 
@@ -37,9 +37,9 @@ const split_statements = (content: string): string[] => {
     current += text;
   };
 
-  const flush = (): void => {
-    const statement = current.trim();
-    if (statement) statements.push(statement);
+  const flush = (preserveData = false): void => {
+    const statement = preserveData ? current : current.trim();
+    if (statement || separator === ',') statements.push(statement);
     current = '';
     pendingSpace = false;
     bracketDepth = 0;
@@ -49,6 +49,21 @@ const split_statements = (content: string): string[] => {
     inputFunctionExpected = false;
     formatExpected = false;
     previousToken = '';
+  };
+
+  const finishFormat = (name: string, start: number): number => {
+    formatExpected = false;
+    insertHeader = false;
+    if (name === 'VALUES') return start; // VALUES uses SQL literals, including quoted semicolons.
+
+    // Other formats contain data, not SQL: preserve tabs, newlines, quotes and
+    // comment markers verbatim. Keep the legacy boundary: the next ';' or EOF.
+    // Semicolons inside raw data require a format-aware loader, outside this runner.
+    const semicolon = content.indexOf(';', start);
+    const end = semicolon === -1 ? content.length : semicolon;
+    current += content.slice(start, end);
+    flush(true);
+    return semicolon === -1 ? end : end + 1;
   };
 
   const n = content.length;
@@ -94,10 +109,6 @@ const split_statements = (content: string): string[] => {
       continue;
     }
 
-    if (formatExpected && /[A-Za-z_'"`]/.test(ch)) {
-      throw new Error('inline INSERT FORMAT data is not supported in migrations; use INSERT VALUES or INSERT SELECT');
-    }
-
     // quoted strings and identifiers: copied verbatim, including the quotes
     if (ch === "'" || ch === '"' || ch === '`') {
       const quote = ch;
@@ -123,6 +134,10 @@ const split_statements = (content: string): string[] => {
       }
       const end = j + 1; // include the closing quote
       emitPlain(content.slice(i, end));
+      if (formatExpected && quote !== "'") {
+        i = finishFormat(content.slice(i + 1, j).toUpperCase(), end);
+        continue;
+      }
       rememberToken(quote === "'" ? 'quoted' : content.slice(i + 1, j).toUpperCase(), true);
       formatExpected = false;
       i = end;
@@ -147,8 +162,8 @@ const split_statements = (content: string): string[] => {
       }
     }
 
-    // statement terminator
-    if (ch === ';') {
+    // Commas inside arrays, maps and tuples belong to the setting value.
+    if (ch === separator && (separator === ';' || bracketDepth === 0)) {
       flush();
       i += 1;
       continue;
@@ -161,20 +176,25 @@ const split_statements = (content: string): string[] => {
       continue;
     }
 
-    // Recognize an INSERT data clause before scanning its non-SQL payload.
-    // Ignore nested expressions and qualified names; input() is tracked separately.
+    // Recognize data only in an INSERT header or after input(). WITH/SELECT
+    // expressions and identifiers such as "AS format" must stay ordinary SQL.
     const word = /^[A-Za-z_][A-Za-z0-9_$]*/.exec(content.slice(i));
     if (word) {
       const keyword = word[0].toUpperCase();
-      if (bracketDepth === 0) {
-        const identifier = ['INTO', 'TABLE', 'FUNCTION', '.'].includes(previousToken);
+      if (formatExpected) {
+        emitPlain(word[0]);
+        i = finishFormat(keyword, i + word[0].length);
+        continue;
+      }
+      if (separator === ';' && bracketDepth === 0) {
+        const identifier = ['INTO', 'TABLE', 'FUNCTION', '.', 'AS'].includes(previousToken);
         if (!identifier) {
           if (keyword === 'INSERT' && (!current || /^WITH\b/i.test(current))) {
             insertStatement = true;
             insertHeader = true;
           }
-          if (keyword === 'SELECT' || keyword === 'VALUES') insertHeader = false;
-          formatExpected = (insertHeader || inputSource) && keyword === 'FORMAT';
+          if (['WITH', 'SELECT', 'VALUES'].includes(keyword)) insertHeader = false;
+          formatExpected = insertStatement && (insertHeader || inputSource) && keyword === 'FORMAT';
         }
       }
       rememberToken(keyword);
@@ -197,4 +217,7 @@ const split_statements = (content: string): string[] => {
   return statements;
 };
 
-export { split_statements };
+const split_statements = (content: string): string[] => split_sql(content, ';');
+const split_assignments = (content: string): string[] => split_sql(content, ',');
+
+export { split_statements, split_assignments };

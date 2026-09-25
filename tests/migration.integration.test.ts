@@ -39,7 +39,7 @@ describe('Migration tests', () => {
 
     await migration('tests/migrations/one', 'http://sometesthost:8123', 'default', '', 'analytics');
 
-    expect(commandSpy).toHaveBeenCalledTimes(4);
+    expect(commandSpy).toHaveBeenCalledTimes(3);
     expect(querySpy).toHaveBeenCalledTimes(1);
     expect(insertSpy).toHaveBeenCalledTimes(1);
 
@@ -64,11 +64,7 @@ describe('Migration tests', () => {
       },
     });
     expect(commandSpy).toHaveBeenNthCalledWith(3, {
-      query: 'SET allow_experimental_json_type = 1',
-      session_id: expect.any(String),
-    });
-    expect(commandSpy).toHaveBeenNthCalledWith(4, {
-      session_id: expect.any(String),
+      clickhouse_settings: { allow_experimental_json_type: '1' },
       query:
         'CREATE TABLE IF NOT EXISTS `events` ( `event_id` UInt64, `event_data` JSON ) ENGINE=MergeTree() ORDER BY (`event_id`) SETTINGS index_granularity = 8192',
     });
@@ -110,7 +106,7 @@ describe('Migration tests', () => {
       true,
     );
 
-    expect(commandSpy).toHaveBeenCalledTimes(3);
+    expect(commandSpy).toHaveBeenCalledTimes(2);
     expect(querySpy).toHaveBeenCalledTimes(2);
     expect(insertSpy).toHaveBeenCalledTimes(1);
 
@@ -137,11 +133,7 @@ describe('Migration tests', () => {
     });
 
     expect(commandSpy).toHaveBeenNthCalledWith(2, {
-      query: 'SET allow_experimental_json_type = 1',
-      session_id: expect.any(String),
-    });
-    expect(commandSpy).toHaveBeenNthCalledWith(3, {
-      session_id: expect.any(String),
+      clickhouse_settings: { allow_experimental_json_type: '1' },
       query:
         'CREATE TABLE IF NOT EXISTS `events` ( `event_id` UInt64, `event_data` JSON ) ENGINE=MergeTree() ORDER BY (`event_id`) SETTINGS index_granularity = 8192',
     });
@@ -221,7 +213,7 @@ describe('Env var substitution at migration level', () => {
 
     // client.command() receives the substituted SQL (placeholders -> env values).
     expect(commandSpy).toHaveBeenNthCalledWith(3, {
-      session_id: expect.any(String),
+      clickhouse_settings: {},
       query:
         "CREATE OR REPLACE DICTIONARY dict_offers ( `id` UUID, `name` String DEFAULT '' ) PRIMARY KEY id SOURCE(POSTGRESQL(HOST 'pg.internal' PORT 5432 DB 'analytics' TABLE 'offers')) LIFETIME(MIN 0 MAX 300) LAYOUT(COMPLEX_KEY_HASHED())",
     });
@@ -250,7 +242,7 @@ describe('Env var substitution at migration level', () => {
 
     // The placeholders are left untouched - executed SQL matches the raw file.
     expect(commandSpy).toHaveBeenNthCalledWith(3, {
-      session_id: expect.any(String),
+      clickhouse_settings: {},
       query:
         "CREATE OR REPLACE DICTIONARY dict_offers ( `id` UUID, `name` String DEFAULT '' ) PRIMARY KEY id SOURCE(POSTGRESQL(HOST '${PG_HOST}' PORT ${PG_PORT} DB '${PG_DB}' TABLE 'offers')) LIFETIME(MIN 0 MAX 300) LAYOUT(COMPLEX_KEY_HASHED())",
     });
@@ -272,25 +264,22 @@ describe('SQL parsing at migration level', () => {
     fs.rmSync(migrationsDir, { recursive: true, force: true });
   });
 
-  it('sends settings and queries in order and records the original checksum', async () => {
+  it('attaches file-wide settings to every query and records the original checksum', async () => {
     const content =
-      "SET max_threads = 1,\n log_comment = 'ticket; -- # 42';\nSELECT 'line1; -- comment\n  line2';\nSELECT 2;";
+      "SELECT 'line1; -- comment\n  line2';\nSET max_threads = 1,\n log_comment = 'ticket; -- # 42';\nSELECT 2;";
     fs.writeFileSync(path.join(migrationsDir, '1_parse.sql'), content);
 
     await migration(migrationsDir, 'http://sometesthost:8123', 'default', '', 'analytics');
 
-    expect(createClient1.command).toHaveBeenCalledTimes(5);
+    const settings = { max_threads: '1', log_comment: 'ticket; -- # 42' };
+    expect(createClient1.command).toHaveBeenCalledTimes(4);
     expect(createClient1.command).toHaveBeenNthCalledWith(3, {
-      query: "SET max_threads = 1, log_comment = 'ticket; -- # 42'",
-      session_id: expect.any(String),
+      query: "SELECT 'line1; -- comment\n  line2'",
+      clickhouse_settings: settings,
     });
     expect(createClient1.command).toHaveBeenNthCalledWith(4, {
-      query: "SELECT 'line1; -- comment\n  line2'",
-      session_id: expect.any(String),
-    });
-    expect(createClient1.command).toHaveBeenNthCalledWith(5, {
       query: 'SELECT 2',
-      session_id: expect.any(String),
+      clickhouse_settings: settings,
     });
     expect(createClient1.insert).toHaveBeenCalledWith({
       table: '_migrations',
@@ -301,29 +290,19 @@ describe('SQL parsing at migration level', () => {
     });
   });
 
-  it('shares a session within a file and starts a fresh one for the next file', async () => {
+  it('uses the last setting for the entire file without leaking it into the next file', async () => {
     fs.writeFileSync(
       path.join(migrationsDir, '1_first.sql'),
-      'SET max_threads = 1; SELECT 1; SET max_threads = 2; SELECT 2;',
+      'SELECT 1; SET max_threads = 1; SELECT 2; SET max_threads = 2, wait_end_of_query = 1;',
     );
     fs.writeFileSync(path.join(migrationsDir, '2_second.sql'), 'SELECT 3;');
 
     await migration(migrationsDir, 'http://sometesthost:8123', 'default', '', 'analytics');
 
-    const commands = createClient1.command.mock.calls
-      .slice(2)
-      .map(([command]) => command as { query: string; session_id: string });
-    const firstSession = commands[0].session_id;
-    const secondSession = commands[4].session_id;
-    expect(firstSession).toEqual(expect.any(String));
-    expect(secondSession).toEqual(expect.any(String));
-    expect(secondSession).not.toBe(firstSession);
-    expect(commands).toEqual([
-      { query: 'SET max_threads = 1', session_id: firstSession },
-      { query: 'SELECT 1', session_id: firstSession },
-      { query: 'SET max_threads = 2', session_id: firstSession },
-      { query: 'SELECT 2', session_id: firstSession },
-      { query: 'SELECT 3', session_id: secondSession },
+    expect(createClient1.command.mock.calls.slice(2).map(([command]) => command)).toEqual([
+      { query: 'SELECT 1', clickhouse_settings: { max_threads: '2', wait_end_of_query: '1' } },
+      { query: 'SELECT 2', clickhouse_settings: { max_threads: '2', wait_end_of_query: '1' } },
+      { query: 'SELECT 3', clickhouse_settings: {} },
     ]);
     expect(createClient1.insert).toHaveBeenCalledTimes(2);
   });
@@ -336,14 +315,10 @@ describe('SQL parsing at migration level', () => {
 
     await migration(migrationsDir, 'http://sometesthost:8123', 'default', '', 'analytics');
 
-    expect(createClient1.command).toHaveBeenCalledTimes(4);
+    expect(createClient1.command).toHaveBeenCalledTimes(3);
     expect(createClient1.command).toHaveBeenNthCalledWith(3, {
-      query: "SET log_comment = 'first; -- # /* literal */\n  second'",
-      session_id: expect.any(String),
-    });
-    expect(createClient1.command).toHaveBeenNthCalledWith(4, {
       query: "SELECT 'first; -- # /* literal */\n  second'",
-      session_id: expect.any(String),
+      clickhouse_settings: { log_comment: 'first; -- # /* literal */\n  second' },
     });
     expect(createClient1.insert).toHaveBeenCalledWith({
       table: '_migrations',
@@ -371,7 +346,7 @@ describe('SQL parsing at migration level', () => {
         'process.exit',
       );
       expect(createClient1.command).toHaveBeenCalledTimes(4);
-      expect(createClient1.command).toHaveBeenLastCalledWith({ query: 'SELECT 2', session_id: expect.any(String) });
+      expect(createClient1.command).toHaveBeenLastCalledWith({ query: 'SELECT 2', clickhouse_settings: {} });
       expect(createClient1.insert).not.toHaveBeenCalled();
       const message = errorSpy.mock.calls.map((args) => args.join(' ')).join('\n');
       expect(message).toContain('1_parse.sql');
@@ -388,7 +363,7 @@ describe('SQL parsing at migration level', () => {
     ['SELECT 1; SELECT `unclosed', 'unterminated quoted identifier'],
     ['SELECT 1; /* unclosed', 'unterminated block comment'],
     ['SELECT 1; SELECT $tag$unclosed', 'unterminated dollar-quoted string'],
-    ['SELECT 1; INSERT INTO t FORMAT CSV\n1,value;', 'inline INSERT FORMAT data is not supported'],
+    ['SELECT 1; SET max_threads = 1, invalid;', 'invalid SET assignment'],
     ["SELECT 1; SELECT '${SQL_PARSE_TEST_MISSING}';", 'environment variable SQL_PARSE_TEST_MISSING is not set'],
     ["SELECT 1; SELECT '${SQL_PARSE_TEST_VALUE}';", 'unterminated string literal'],
   ])('stops before executing any statement from a malformed file: %s', async (content, error) => {

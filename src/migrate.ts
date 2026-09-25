@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import fs from 'fs';
 import crypto from 'crypto';
 
-import { sql_queries, substitute_env } from './sql-parse';
+import { parse_migration_sql, substitute_env } from './sql-parse';
 import { VERSION } from './version';
 
 const log = (type: 'info' | 'error' = 'info', message: string, error?: string) => {
@@ -264,20 +264,24 @@ const apply_migrations = async (
     // Parse the entire file before executing its statements. Substitution is
     // opt-in; the checksum above always uses the original file content.
     let queries: string[];
+    let settings: Record<string, string>;
     try {
-      queries = sql_queries(substitute_env(content));
+      ({ queries, settings } = parse_migration_sql(substitute_env(content)));
     } catch (e: unknown) {
       log('error', `the migration ${migration.file} has an error.`, e instanceof Error ? e.message : String(e));
       process.exit(1);
     }
 
-    // A fresh session keeps SET commands sequential and local to this file.
-    const session_id = crypto.randomUUID();
+    // Keep the established file-wide SET behavior: the last assignment wins,
+    // including for queries earlier in the file. Send settings on every request
+    // instead of using sessions, whose state is lost if a load balancer routes
+    // the next query to another server. Per-query settings also override host
+    // URL defaults and support HTTP parameters such as wait_end_of_query.
     for (const query of queries) {
       try {
         await client.command({
           query: query,
-          session_id,
+          clickhouse_settings: settings,
         });
       } catch (e: unknown) {
         if (applied_migrations) {

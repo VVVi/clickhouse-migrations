@@ -14,7 +14,7 @@ Create a directory, where migrations will be stored. It will be used as the valu
 
 In the directory, create migration files, which should be named like this: `1_some_text.sql`, `2_other_text.sql`, `10_more_test.sql`. What's important here is that the migration version number should come first, followed by an underscore (`_`), and then any text can follow. The version number should increase for every next migration. Please note that once a migration file has been applied to the database, it cannot be modified or removed.
 
-Migration files contain ClickHouse SQL statements separated by semicolons (`;`). Semicolons and comment markers inside single-quoted strings, quoted identifiers (`"..."`, `` `...` ``), and dollar-quoted strings (`$tag$...$tag$` or `$$...$$`) are preserved. Whitespace inside quoted text is also preserved. Comments (`--`, `//`, `# `, `#!`, and nested `/* ... */`) are removed, and whitespace outside quoted text is collapsed.
+Migration files contain ClickHouse SQL statements separated by semicolons (`;`). Semicolons and comment markers inside single-quoted strings, quoted identifiers (`"..."`, `` `...` ``), and dollar-quoted strings (`$tag$...$tag$` or `$$...$$`) are preserved. Whitespace inside quoted text is also preserved. In SQL, comments (`--`, `//`, `# `, `#!`, and nested `/* ... */`) are removed, and whitespace outside quoted text is collapsed. Inline formatted data is preserved separately as described below.
 
 See [SQL execution and settings](#sql-execution-and-settings) below for details on settings, supported migration content, and error handling.
 
@@ -155,21 +155,25 @@ _Please note:_ When substitution is enabled, the checksum is taken from the **ra
 
 ## SQL execution and settings
 
-Statements execute in order within a fresh ClickHouse HTTP session for each migration file. Settings apply to subsequent statements in that file and do not carry over to the next file. The endpoint must support HTTP sessions and route requests for the same session to the same server.
+Queries execute in file order. Assignment-style `SET name = value` statements are collected before executing the file: the last assignment to each setting applies to **every query in that file**, including queries written before the `SET`. This preserves the package's existing behavior. Settings do not carry over to the next migration file.
 
-Use `SET` commands to configure settings and query parameters for subsequent statements. The syntax available depends on your ClickHouse server version:
+Settings are sent with each HTTP request, overriding defaults supplied in the host URL. This works without shared session state when a load balancer routes requests to different servers, and also supports HTTP parameters such as `wait_end_of_query`.
+
+Use assignment-style `SET` commands for settings and query parameters. Quoted string values, multiline assignments and compound parameter values are supported; the available setting names and values depend on your ClickHouse version:
 
 ```sql
 SET max_threads = 2,
     log_comment = 'migration; keep this text';
-SET force_index_by_date = 1;
+SET wait_end_of_query = 1;
 SET session_timezone = 'UTC';
 SET param_d = {'10': [11, 12], '13': [14, 15]};
 SELECT {d:Map(String, Array(UInt8))};
 ```
 
-This changes the previous file-wide settings behavior: a later `SET` no longer changes earlier queries. Put settings before the queries that need them. `SET ROLE` also executes in order.
+For a setting specific to one query, use that query's `SETTINGS` clause where ClickHouse supports it. Commands requiring shared session state, such as `SET ROLE` followed by another query, are not supported. Use `SET session_timezone = 'UTC'` to configure the timezone for the file.
 
-Inline data using `INSERT ... FORMAT CSV`, `TabSeparated`, `JSONEachRow`, or other formats is not supported in migrations. This includes `INSERT ... SELECT ... FROM input(...) FORMAT ...`. Use `INSERT ... VALUES` or `INSERT ... SELECT` without inline data in migrations; load external data separately.
+Inline `INSERT ... FORMAT` data is accepted, including `INSERT ... SELECT ... FROM input(...) FORMAT ...`. `FORMAT Values` uses the same quote handling as `INSERT ... VALUES`. For other formats, everything after the format name is preserved verbatim up to the next semicolon or the end of the file: tabs, newlines, quotes and comment markers remain data.
 
-Unterminated quotes/comments and unsupported inline data cause an error identifying the migration file before any statement in that file executes. ClickHouse validates SQL syntax, setting names, and setting values when each statement runs. Database setup and earlier files may already have run, and server-side errors can still leave a file partially applied. Where appropriate, use idempotent statements such as `CREATE TABLE IF NOT EXISTS ...`.
+Raw formats retain the legacy semicolon delimiter, even inside quoted data. Payloads containing semicolons should use `INSERT ... VALUES` or be loaded separately. ClickHouse validates the data format; this package does not parse CSV, JSON or other raw formats.
+
+Unterminated SQL quotes/comments and malformed setting assignments cause an error identifying the migration file before any query in that file executes. ClickHouse validates SQL syntax, setting names, setting values and inline data when each query runs. Database setup and earlier files may already have run, and server-side errors can still leave a file partially applied. Where appropriate, use idempotent statements such as `CREATE TABLE IF NOT EXISTS ...`.

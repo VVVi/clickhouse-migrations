@@ -2,6 +2,8 @@ import { createClient } from '@clickhouse/client';
 import crypto from 'crypto';
 import { execFile } from 'child_process';
 import fs from 'fs';
+import http from 'http';
+import https from 'https';
 import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
@@ -30,14 +32,14 @@ describeClickHouse('SQL compatibility with ClickHouse', () => {
     await client.close();
   });
 
-  const runMigration = () =>
+  const runMigration = (host = url!) =>
     execFileAsync(
       process.execPath,
       [
         path.join(__dirname, '..', 'lib', 'cli.js'),
         'migrate',
         '--host',
-        url!,
+        host,
         '--user',
         'default',
         '--password',
@@ -55,7 +57,7 @@ describeClickHouse('SQL compatibility with ClickHouse', () => {
     return result.json<T>();
   };
 
-  it('uses SET values and parameters in statement order, isolated by file', async () => {
+  it('uses final SET values throughout a file, isolated from the next file', async () => {
     const [defaults] = await rows<{ threads: string; timezone: string; note: string }>(
       "SELECT toString(getSetting('max_threads')) AS threads, getSetting('session_timezone') AS timezone, getSetting('log_comment') AS note",
     );
@@ -64,30 +66,31 @@ describeClickHouse('SQL compatibility with ClickHouse', () => {
         stage UInt8, threads String, timezone String, note String,
         data Map(String, Array(UInt8))
       ) ENGINE = Memory;
-      SET max_threads = 1,
-          log_comment = 'a b';
-      SET session_timezone = 'UTC';
       INSERT INTO observations SELECT 1, toString(getSetting('max_threads')), getSetting('session_timezone'), getSetting('log_comment'), map();
+      SET max_threads = 1;
+      INSERT INTO observations SELECT 2, toString(getSetting('max_threads')), getSetting('session_timezone'), getSetting('log_comment'), {d:Map(String, Array(UInt8))};
       SET max_threads = 2;
       SET session_timezone = 'Europe/Amsterdam';
-      SET force_index_by_date = 1;
-      SELECT throwIf(getSetting('force_index_by_date') != 1, 'boolean SET failed');
-      SET force_index_by_date = 0;
       SET log_comment = 'a; -- # /* x */\n\tit''s \x41\\n\%';
       SET param_d = {'10': [11, 12], '13': [14, 15]}, param_tuple = (1, [2, 3]);
       SELECT throwIf({tuple:Tuple(UInt8, Array(UInt8))} != tuple(1, [2, 3]), 'tuple parameter failed');
-      INSERT INTO observations SELECT 2, toString(getSetting('max_threads')), getSetting('session_timezone'), getSetting('log_comment'), {d:Map(String, Array(UInt8))};
     `;
     fs.writeFileSync(path.join(migrationsDir, '1_settings.sql'), first);
     fs.writeFileSync(
-      path.join(migrationsDir, '2_fresh_session.sql'),
+      path.join(migrationsDir, '2_default_settings.sql'),
       "INSERT INTO observations SELECT 3, toString(getSetting('max_threads')), getSetting('session_timezone'), getSetting('log_comment'), map();",
     );
 
     await runMigration();
 
     expect(await rows(`SELECT * FROM ${database}.observations ORDER BY stage`)).toEqual([
-      { stage: 1, threads: '1', timezone: 'UTC', note: 'a b', data: {} },
+      {
+        stage: 1,
+        threads: '2',
+        timezone: 'Europe/Amsterdam',
+        note: "a; -- # /* x */\n\tit's A\\n\\%",
+        data: {},
+      },
       {
         stage: 2,
         threads: '2',
@@ -105,21 +108,76 @@ describeClickHouse('SQL compatibility with ClickHouse', () => {
     expect(await rows(`SELECT toUInt32(count()) AS count FROM ${database}.observations`)).toEqual([{ count: 3 }]);
   });
 
-  it('supports modern boolean shorthand and SET TIME ZONE syntax', async () => {
+  it('accepts HTTP settings and applies settings placed after the query that needs them', async () => {
     fs.writeFileSync(
-      path.join(migrationsDir, '1_modern_settings.sql'),
+      path.join(migrationsDir, '1_late_settings.sql'),
       `
-      SET force_index_by_date;
-      SELECT throwIf(getSetting('force_index_by_date') != 1, 'boolean SET shorthand failed');
-      SET TIME ZONE 'UTC';
-      SELECT throwIf(getSetting('session_timezone') != 'UTC', 'SET TIME ZONE failed');
-      SET TIME ZONE = 'Europe/Amsterdam';
-      SELECT throwIf(getSetting('session_timezone') != 'Europe/Amsterdam', 'SET TIME ZONE assignment failed');
+      CREATE TABLE enabled_by_setting (value LowCardinality(UInt8)) ENGINE = Memory;
+      SET allow_suspicious_low_cardinality_types = 1;
+      SET wait_end_of_query = 1;
     `,
     );
 
     await runMigration();
     expect(await rows(`SELECT version FROM ${database}._migrations`)).toEqual([{ version: 1 }]);
+  });
+
+  it('lets migration settings override host URL defaults', async () => {
+    const host = new URL(url!);
+    host.searchParams.set('ch_max_threads', '2');
+    fs.writeFileSync(
+      path.join(migrationsDir, '1_url_settings.sql'),
+      `
+      SET max_threads = 1;
+      CREATE TABLE observed (value UInt64) ENGINE = Memory;
+      INSERT INTO observed SELECT getSetting('max_threads');
+    `,
+    );
+
+    await runMigration(host.toString());
+
+    expect(await rows(`SELECT toUInt32(value) AS value FROM ${database}.observed`)).toEqual([{ value: 1 }]);
+  });
+
+  it('carries settings on every request without relying on shared session state', async () => {
+    // Give each request a fresh server context, as when requests reach different
+    // backend nodes. Session-based SET would be lost before the next query.
+    const requests: URL[] = [];
+    const proxy = http.createServer((request, response) => {
+      const target = new URL(request.url!, url!);
+      requests.push(new URL(target));
+      target.searchParams.set('session_id', crypto.randomUUID());
+      const transport = target.protocol === 'https:' ? https : http;
+      const upstream = transport.request(target, { method: request.method, headers: request.headers }, (reply) => {
+        response.writeHead(reply.statusCode!, reply.headers);
+        reply.pipe(response);
+      });
+      upstream.on('error', (error) => {
+        response.writeHead(502);
+        response.end(error.message);
+      });
+      request.pipe(upstream);
+    });
+    await new Promise<void>((resolve) => proxy.listen(0, '127.0.0.1', resolve));
+
+    try {
+      fs.writeFileSync(
+        path.join(migrationsDir, '1_stateless.sql'),
+        `
+        SET max_threads = 1;
+        SELECT throwIf(getSetting('max_threads') != 1, 'migration setting lost');
+        SELECT throwIf(getSetting('max_threads') != 1, 'migration setting lost');
+      `,
+      );
+      const address = proxy.address() as { port: number };
+      await runMigration(`http://127.0.0.1:${address.port}`);
+
+      expect(requests.every((request) => !request.searchParams.has('session_id'))).toBe(true);
+      expect(requests.filter((request) => request.searchParams.get('max_threads') === '1')).toHaveLength(2);
+      expect(await rows(`SELECT version FROM ${database}._migrations`)).toEqual([{ version: 1 }]);
+    } finally {
+      await new Promise<void>((resolve, reject) => proxy.close((error) => (error ? reject(error) : resolve())));
+    }
   });
 
   it('preserves quoted identifiers, literals and dollar-quoted data while removing nested comments', async () => {
@@ -133,6 +191,8 @@ describeClickHouse('SQL compatibility with ClickHouse', () => {
       SELECT throwIf(count() != 2, 'not stopped; -- see header') FROM quoted;
       CREATE TABLE format (note String) ENGINE = Memory;
       INSERT INTO TABLE format VALUES ('ok');
+      INSERT INTO format WITH 'alias' AS format SELECT format;
+      INSERT INTO format WITH format AS (SELECT 'cte') SELECT * FROM format;
     `,
     );
 
@@ -142,24 +202,32 @@ describeClickHouse('SQL compatibility with ClickHouse', () => {
       { 'a;b': "it's; -- #! /* literal */", 'c;d': 'first; -- comment\n  second' },
       { 'a;b': 'ticket # 42', 'c;d': 'line1\n  line2   end' },
     ]);
-    expect(await rows(`SELECT * FROM ${database}.format`)).toEqual([{ note: 'ok' }]);
+    expect(await rows(`SELECT * FROM ${database}.format ORDER BY note`)).toEqual([
+      { note: 'alias' },
+      { note: 'cte' },
+      { note: 'ok' },
+    ]);
   });
 
   it.each([
-    'INSERT INTO raw FORMAT CSV\n1,hello;world\n',
-    "INSERT INTO raw SELECT * FROM input('id UInt8, note String') FORMAT CSV\n1,hello;world\n",
-    "INSERT INTO raw SELECT * FROM (SELECT * FROM input('id UInt8, note String')) FORMAT CSV\n1,hello;world\n",
-  ])('rejects inline formatted data before running earlier statements: %s', async (insert) => {
+    "INSERT INTO raw FORMAT CSV\n1,O'Reilly -- # /* literal */\n",
+    "INSERT INTO raw FORMAT TabSeparated\n1\tO'Reilly -- # /* literal */\n",
+    `INSERT INTO raw FORMAT JSONEachRow\n{"id":1,"note":"O'Reilly -- # /* literal */"}\n`,
+    "INSERT INTO raw FORMAT Values (1, 'O''Reilly -- # /* literal */')",
+    "INSERT INTO raw SELECT * FROM input('id UInt8, note String') FORMAT CSV\n1,O'Reilly -- # /* literal */\n",
+    "INSERT INTO raw SELECT * FROM (SELECT * FROM input('id UInt8, note String')) FORMAT CSV\n1,O'Reilly -- # /* literal */\n",
+  ])('preserves inline data and resumes SQL after its terminator: %s', async (insert) => {
     fs.writeFileSync(
       path.join(migrationsDir, '1_raw.sql'),
-      `CREATE TABLE raw (id UInt8, note String) ENGINE = Memory; ${insert}`,
+      `CREATE TABLE raw (id UInt8, note String) ENGINE = Memory; ${insert}; INSERT INTO raw VALUES (2, 'next statement');`,
     );
 
-    await expect(runMigration()).rejects.toMatchObject({
-      stderr: expect.stringContaining('inline INSERT FORMAT data is not supported'),
-    });
-    expect(await rows(`EXISTS TABLE ${database}.raw`)).toEqual([{ result: 0 }]);
-    expect(await rows(`SELECT version FROM ${database}._migrations`)).toEqual([]);
+    await runMigration();
+    expect(await rows(`SELECT * FROM ${database}.raw ORDER BY id`)).toEqual([
+      { id: 1, note: "O'Reilly -- # /* literal */" },
+      { id: 2, note: 'next statement' },
+    ]);
+    expect(await rows(`SELECT version FROM ${database}._migrations`)).toEqual([{ version: 1 }]);
   });
 
   it('rejects an unterminated literal before executing any statement from the file', async () => {
@@ -175,7 +243,7 @@ describeClickHouse('SQL compatibility with ClickHouse', () => {
     expect(await rows(`SELECT version FROM ${database}._migrations`)).toEqual([]);
   });
 
-  it('does not record a failed migration or run statements after a server-side SET error', async () => {
+  it('does not record a migration when the server rejects a file-wide setting', async () => {
     fs.writeFileSync(
       path.join(migrationsDir, '1_invalid_setting.sql'),
       `
@@ -188,7 +256,7 @@ describeClickHouse('SQL compatibility with ClickHouse', () => {
     await expect(runMigration()).rejects.toMatchObject({
       stderr: expect.stringContaining('not_a_real_clickhouse_setting'),
     });
-    expect(await rows(`EXISTS TABLE ${database}.before_error`)).toEqual([{ result: 1 }]);
+    expect(await rows(`EXISTS TABLE ${database}.before_error`)).toEqual([{ result: 0 }]);
     expect(await rows(`EXISTS TABLE ${database}.after_error`)).toEqual([{ result: 0 }]);
     expect(await rows(`SELECT version FROM ${database}._migrations`)).toEqual([]);
   });
