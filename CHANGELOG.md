@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.4.1...v1.5.0) (2026-09-25)
+
+
+### Features
+
+* expand sql syntax support in migration files and fix parsing issues ([64fd53b](https://github.com/VVVi/clickhouse-migrations/commit/64fd53b41aae04efd33e13afdda110ac3d54396c))
+
 ## [1.4.1](https://github.com/VVVi/clickhouse-migrations/compare/v1.4.0...v1.4.1) (2026-09-24)
 
 
