@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/VVVi/clickhouse-migrations/compare/v1.5.0...v1.5.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* bump package version to fix vulnerabilities ([12c6d6a](https://github.com/VVVi/clickhouse-migrations/commit/12c6d6a984defdd3a4864d0999748adf9cfa6be6))
+
 ## [1.5.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.4.1...v1.5.0) (2026-09-25)
 
 
