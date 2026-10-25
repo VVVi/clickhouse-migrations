@@ -1,6 +1,6 @@
 # clickhouse-migrations
 
-> ClickHouse Migrations CLI
+> ClickHouse Migrations CLI and library
 
 ## Install
 
@@ -152,6 +152,59 @@ LAYOUT(COMPLEX_KEY_HASHED());
 ```
 
 _Please note:_ When substitution is enabled, the checksum is taken from the **raw file**, before substitution. This keeps a migration stable across environments and keeps secrets out of `_migrations`. Two consequences follow: an already-applied migration is not re-run when a variable changes (ship a new migration instead), and the substituted SQL still reaches ClickHouse, so it may appear in `system.query_log` or server logs.
+
+## Use as a library
+
+Import `migration` and pass an options object. Named options let you set a timeout or an engine without filling in unused arguments.
+
+```typescript
+import { migration, type MigrationOptions } from 'clickhouse-migrations';
+
+const options: MigrationOptions = {
+  migrations_home: './migrations',
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: '',
+  db_name: 'analytics',
+  timeout: '60000',
+};
+
+await migration(options);
+```
+
+For CommonJS, use `const { migration } = require('clickhouse-migrations')` and call it from an async function.
+
+Possible function parameters:
+
+| Option | Type | Required | Description |
+| --- | --- | --- | --- |
+| `migrations_home` | `string` | Yes | Directory containing the SQL files, relative to the working directory or absolute. |
+| `host` | `string` | Yes | ClickHouse HTTP or HTTPS URL, including the port. |
+| `username` | `string` | Yes | ClickHouse username. |
+| `password` | `string` | Yes | Use `''` for an empty password. |
+| `db_name` | `string` | Yes | Target database. Created if it does not exist, unless `skip_db_creation` is enabled. |
+| `db_engine` | `string` | No | Optional `ON CLUSTER` and/or `ENGINE` clauses for database creation. If omitted, ClickHouse chooses its default engine. |
+| `table_engine` | `string` | No | Engine for the `_migrations` table. Defaults to `MergeTree`. |
+| `timeout` | `string` | No | Request timeout in milliseconds, for example `'60000'`. Defaults to the client's `30000` ms. |
+| `ca_cert` | `string` | No | Path to a CA certificate file for TLS. |
+| `cert` | `string` | No | Path to a client certificate. Use with `ca_cert` and `key`. |
+| `key` | `string` | No | Path to the client private key. Use with `ca_cert` and `cert`. |
+| `skip_db_creation` | `boolean` | No | Defaults to `false`. When `true`, checks that the database exists without trying to create it. |
+
+Connection options come from the object. The CLI's `CH_MIGRATIONS_*` connection variables are not read by `migration()`. [Environment variable substitution](#environment-variable-substitution-optional) in SQL files uses `CH_MIGRATIONS_SUBSTITUTE_ENV` for both the library and the CLI.
+
+`migration(options)` logs progress to the console and returns a `Promise<void>` that resolves after migrations finish successfully and connections are closed. If a migration fails, it attempts to close its connections and rejects with an error your application can catch. It does not exit the process. A cleanup failure does not replace the original migration error, and underlying client or SQL parsing errors are available through `error.cause`. The CLI and deprecated positional form also attempt cleanup, but then log the error and exit with status `1`.
+
+```typescript
+try {
+  await migration(options);
+} catch (error) {
+  console.error('Migration failed:', error);
+  // Decide whether to retry, stop startup, or shut down your application.
+}
+```
+
+**Note:** The previously undocumented positional form of `migration()` is deprecated and will be removed in a future major release. If you use it, switch to the options object shown above.
 
 ## SQL execution and settings
 

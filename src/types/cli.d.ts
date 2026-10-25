@@ -25,7 +25,3 @@ type CliParameters = {
   key?: string;
   skipDbCreation?: boolean;
 };
-
-type QueryError = {
-  message: string;
-};
