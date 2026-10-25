@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/VVVi/clickhouse-migrations/compare/v1.5.1...v1.6.0) (2026-10-25)
+
+
+### Features
+
+* add typed params for migration, and keep compatibility ([#59](https://github.com/VVVi/clickhouse-migrations/issues/59)) ([414fde7](https://github.com/VVVi/clickhouse-migrations/commit/414fde7e1005778b5c0bb2e7670ad99f8460bdb5))
+
 ## [1.5.1](https://github.com/VVVi/clickhouse-migrations/compare/v1.5.0...v1.5.1) (2026-10-23)
 
 
