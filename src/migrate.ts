@@ -318,20 +318,36 @@ const apply_migrations = async (
   }
 };
 
-const migration = async (
-  migrations_home: string,
-  host: string,
-  username: string,
-  password: string,
-  db_name: string,
-  db_engine?: string,
-  table_engine?: string,
-  timeout?: string,
-  ca_cert?: string | undefined,
-  cert?: string | undefined,
-  key?: string | undefined,
-  skip_db_creation?: boolean,
-): Promise<void> => {
+/** Options object for applying migrations. */
+export interface MigrationOptions {
+  migrations_home: string;
+  host: string;
+  username: string;
+  password: string;
+  db_name: string;
+  db_engine?: string;
+  table_engine?: string;
+  timeout?: string;
+  ca_cert?: string;
+  cert?: string;
+  key?: string;
+  skip_db_creation?: boolean;
+}
+
+const run_migration = async ({
+  migrations_home,
+  host,
+  username,
+  password,
+  db_name,
+  db_engine,
+  table_engine,
+  timeout,
+  ca_cert,
+  cert,
+  key,
+  skip_db_creation,
+}: MigrationOptions): Promise<void> => {
   const migrations = get_migrations(migrations_home);
 
   await create_db(host, username, password, db_name, db_engine, timeout, ca_cert, cert, key, skip_db_creation);
@@ -344,6 +360,62 @@ const migration = async (
 
   await client.close();
 };
+
+// Keep the existing positional signature unchanged for compatibility.
+type LegacyMigrationArguments = [
+  migrations_home: string,
+  host: string,
+  username: string,
+  password: string,
+  db_name: string,
+  db_engine?: string,
+  table_engine?: string,
+  timeout?: string,
+  ca_cert?: string,
+  cert?: string,
+  key?: string,
+  skip_db_creation?: boolean,
+];
+
+function migration(options: MigrationOptions): Promise<void>;
+/** @deprecated Use migration(options) for new code. */
+function migration(...args: LegacyMigrationArguments): Promise<void>;
+async function migration(...args: [options: MigrationOptions] | LegacyMigrationArguments): Promise<void> {
+  if (typeof args[0] !== 'string') {
+    // If the first argument is not a string, assume it's the new options object.
+    return run_migration(args[0]);
+  }
+
+  // Keep using legacy positional arguments for backward compatibility.
+  const [
+    migrations_home,
+    host,
+    username,
+    password,
+    db_name,
+    db_engine,
+    table_engine,
+    timeout,
+    ca_cert,
+    cert,
+    key,
+    skip_db_creation,
+  ] = args as LegacyMigrationArguments;
+  return run_migration({
+    migrations_home,
+    host,
+    username,
+    password,
+    db_name,
+    db_engine,
+    table_engine,
+    timeout,
+    ca_cert,
+    cert,
+    key,
+    skip_db_creation,
+  });
+}
 
 const migrate = () => {
   const program = new Command();
@@ -378,20 +450,20 @@ const migrate = () => {
     .option('--key <path>', 'Client key file path', process.env.CH_MIGRATIONS_KEY)
     .option('--skip-db-creation', 'Skip database creation', process.env.CH_MIGRATIONS_SKIP_DB_CREATION === 'true')
     .action(async (options: CliParameters) => {
-      await migration(
-        options.migrationsHome,
-        options.host,
-        options.user,
-        options.password,
-        options.db,
-        options.dbEngine,
-        options.tableEngine,
-        options.timeout,
-        options.caCert,
-        options.cert,
-        options.key,
-        options.skipDbCreation,
-      );
+      await migration({
+        migrations_home: options.migrationsHome,
+        host: options.host,
+        username: options.user,
+        password: options.password,
+        db_name: options.db,
+        db_engine: options.dbEngine,
+        table_engine: options.tableEngine,
+        timeout: options.timeout,
+        ca_cert: options.caCert,
+        cert: options.cert,
+        key: options.key,
+        skip_db_creation: options.skipDbCreation,
+      });
     });
 
   program.parse();
