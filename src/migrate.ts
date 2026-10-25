@@ -54,12 +54,7 @@ const connect = (
         };
       }
     } catch (e: unknown) {
-      log(
-        'error',
-        'Failed to read CA certificate file for TLS connection.',
-        e instanceof Error ? e.message : String(e),
-      );
-      process.exit(1);
+      throw new Error('Failed to read CA certificate file for TLS connection.', { cause: e });
     }
   }
   return createClient(db_params);
@@ -81,57 +76,53 @@ const create_db = async (
   const client = connect(host, username, password, undefined, timeout, ca_cert, cert, key);
 
   try {
-    await client.ping();
-  } catch (e: unknown) {
-    log('error', `Failed to connect to ClickHouse`, (e as QueryError).message);
-    process.exit(1);
-  }
-
-  if (skip_db_creation) {
-    // Database creation is disabled - verify the database already exists.
-    let exists = false;
     try {
-      const resultSet = await client.query({
-        query: `SELECT 1 AS ok FROM system.databases WHERE name = {db_name:String}`,
-        query_params: { db_name },
-        format: 'JSONEachRow',
-      });
-      const rows = (await resultSet.json()) as { ok: number }[];
-      exists = rows.length > 0;
+      await client.ping();
     } catch (e: unknown) {
-      log('error', `can't verify that the database ${db_name} exists.`, (e as QueryError).message);
-      await client.close();
-      process.exit(1);
+      throw new Error(`Failed to connect to ClickHouse`, { cause: e });
     }
 
-    if (!exists) {
-      log(
-        'error',
-        `the database ${db_name} doesn't exist and --skip-db-creation is set. Please create the database manually or remove --skip-db-creation.`,
-      );
-      await client.close();
-      process.exit(1);
+    if (skip_db_creation) {
+      // Database creation is disabled - verify the database already exists.
+      let exists = false;
+      try {
+        const resultSet = await client.query({
+          query: `SELECT 1 AS ok FROM system.databases WHERE name = {db_name:String}`,
+          query_params: { db_name },
+          format: 'JSONEachRow',
+        });
+        const rows = (await resultSet.json()) as { ok: number }[];
+        exists = rows.length > 0;
+      } catch (e: unknown) {
+        throw new Error(`can't verify that the database ${db_name} exists.`, { cause: e });
+      }
+
+      if (!exists) {
+        throw new Error(
+          `the database ${db_name} doesn't exist and --skip-db-creation is set. Please create the database manually or remove --skip-db-creation.`,
+        );
+      }
+    } else {
+      // In open source ClickHouse - default DB engine is "Atomic", for Cloud - "Shared". If not set, appropriate default is used.
+      const q = db_engine
+        ? `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`
+        : `CREATE DATABASE IF NOT EXISTS "${db_name}"`;
+
+      try {
+        await client.command({
+          query: q,
+          clickhouse_settings: {
+            wait_end_of_query: 1,
+          },
+        });
+      } catch (e: unknown) {
+        throw new Error(`can't create the database ${db_name}.`, { cause: e });
+      }
     }
-
-    await client.close();
-    return;
-  }
-
-  // In open source ClickHouse - default DB engine is "Atomic", for Cloud - "Shared". If not set, appropriate default is used.
-  const q = db_engine
-    ? `CREATE DATABASE IF NOT EXISTS "${db_name}" ${db_engine}`
-    : `CREATE DATABASE IF NOT EXISTS "${db_name}"`;
-
-  try {
-    await client.command({
-      query: q,
-      clickhouse_settings: {
-        wait_end_of_query: 1,
-      },
-    });
-  } catch (e: unknown) {
-    log('error', `can't create the database ${db_name}.`, (e as QueryError).message);
-    process.exit(1);
+  } catch (error: unknown) {
+    // Preserve the original failure if closing the connection also fails.
+    await client.close().catch(() => undefined);
+    throw error;
   }
 
   await client.close();
@@ -156,8 +147,7 @@ const init_migration_table = async (client: ClickHouseClient, table_engine: stri
       },
     });
   } catch (e: unknown) {
-    log('error', `can't create the _migrations table.`, (e as QueryError).message);
-    process.exit(1);
+    throw new Error(`can't create the _migrations table.`, { cause: e });
   }
 };
 
@@ -165,9 +155,8 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
   let files;
   try {
     files = fs.readdirSync(migrations_home);
-  } catch (e: unknown) {
-    log('error', `no migration directory ${migrations_home}. Please create it.`);
-    process.exit(1);
+  } catch {
+    throw new Error(`no migration directory ${migrations_home}. Please create it.`);
   }
 
   const migrations: MigrationBase[] = [];
@@ -180,11 +169,9 @@ const get_migrations = (migrations_home: string): { version: number; file: strin
     const version = Number(file.split('_')[0]);
 
     if (!version) {
-      log(
-        'error',
+      throw new Error(
         `a migration name should start from number, example: 1_init.sql. Please check, if the migration ${file} is named correctly`,
       );
-      process.exit(1);
     }
 
     migrations.push({
@@ -208,7 +195,7 @@ const apply_migrations = async (
   migrations: MigrationBase[],
   migrations_home: string,
 ): Promise<void> => {
-  let migration_query_result: MigrationsRowData[] = [];
+  let migration_query_result: MigrationsRowData[];
   try {
     const resultSet = await client.query({
       query: `SELECT version, checksum, migration_name FROM _migrations ORDER BY version`,
@@ -216,8 +203,7 @@ const apply_migrations = async (
     });
     migration_query_result = await resultSet.json();
   } catch (e: unknown) {
-    log('error', `can't select data from the _migrations table.`, (e as QueryError).message);
-    process.exit(1);
+    throw new Error(`can't select data from the _migrations table.`, { cause: e });
   }
 
   const migrations_applied: MigrationsRowData[] = [];
@@ -231,11 +217,9 @@ const apply_migrations = async (
     // Check if migration file was not removed after apply.
     const migration_exist = migrations.find(({ version }) => version === row.version);
     if (!migration_exist) {
-      log(
-        'error',
+      throw new Error(
         `a migration file shouldn't be removed after apply. Please, restore the migration ${row.migration_name}.`,
       );
-      process.exit(1);
     }
   });
 
@@ -248,13 +232,11 @@ const apply_migrations = async (
     if (migrations_applied[migration.version]) {
       // Check if migration file was not changed after apply.
       if (migrations_applied[migration.version].checksum !== checksum) {
-        log(
-          'error',
+        throw new Error(
           `a migration file should't be changed after apply. Please, restore content of the ${
             migrations_applied[migration.version].migration_name
           } migrations.`,
         );
-        process.exit(1);
       }
 
       // Skip if a migration is already applied.
@@ -268,8 +250,7 @@ const apply_migrations = async (
     try {
       ({ queries, settings } = parse_migration_sql(substitute_env(content)));
     } catch (e: unknown) {
-      log('error', `the migration ${migration.file} has an error.`, e instanceof Error ? e.message : String(e));
-      process.exit(1);
+      throw new Error(`the migration ${migration.file} has an error.`, { cause: e });
     }
 
     // Keep the established file-wide SET behavior: the last assignment wins,
@@ -288,12 +269,10 @@ const apply_migrations = async (
           log('info', `The migration(s) ${applied_migrations} was successfully applied!`);
         }
 
-        log(
-          'error',
+        throw new Error(
           `the migrations ${migration.file} has an error. Please, fix it (be sure that already executed parts of the migration would not be run second time) and re-run migration script.`,
-          (e as QueryError).message,
+          { cause: e },
         );
-        process.exit(1);
       }
     }
 
@@ -304,8 +283,7 @@ const apply_migrations = async (
         format: 'JSONEachRow',
       });
     } catch (e: unknown) {
-      log('error', `can't insert a data into the table _migrations.`, (e as QueryError).message);
-      process.exit(1);
+      throw new Error(`can't insert a data into the table _migrations.`, { cause: e });
     }
 
     applied_migrations = applied_migrations ? applied_migrations + ', ' + migration.file : migration.file;
@@ -354,14 +332,19 @@ const run_migration = async ({
 
   const client = connect(host, username, password, db_name, timeout, ca_cert, cert, key);
 
-  await init_migration_table(client, table_engine);
+  try {
+    await init_migration_table(client, table_engine);
 
-  await apply_migrations(client, migrations, migrations_home);
+    await apply_migrations(client, migrations, migrations_home);
+  } catch (error: unknown) {
+    await client.close().catch(() => undefined);
+    throw error;
+  }
 
   await client.close();
 };
 
-// Keep the existing positional signature unchanged for compatibility.
+// Legacy positional adapter and will be removed in a future major release.
 type LegacyMigrationArguments = [
   migrations_home: string,
   host: string,
@@ -377,8 +360,9 @@ type LegacyMigrationArguments = [
   skip_db_creation?: boolean,
 ];
 
+/** Apply migrations, rejecting on failure without exiting the process. */
 function migration(options: MigrationOptions): Promise<void>;
-/** @deprecated Use migration(options) for new code. */
+/** @deprecated Use migration(options). Positional calls log failures and exit with status 1. */
 function migration(...args: LegacyMigrationArguments): Promise<void>;
 async function migration(...args: [options: MigrationOptions] | LegacyMigrationArguments): Promise<void> {
   if (typeof args[0] !== 'string') {
@@ -401,20 +385,31 @@ async function migration(...args: [options: MigrationOptions] | LegacyMigrationA
     key,
     skip_db_creation,
   ] = args as LegacyMigrationArguments;
-  return run_migration({
-    migrations_home,
-    host,
-    username,
-    password,
-    db_name,
-    db_engine,
-    table_engine,
-    timeout,
-    ca_cert,
-    cert,
-    key,
-    skip_db_creation,
-  });
+  try {
+    await run_migration({
+      migrations_home,
+      host,
+      username,
+      password,
+      db_name,
+      db_engine,
+      table_engine,
+      timeout,
+      ca_cert,
+      cert,
+      key,
+      skip_db_creation,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    const cause = error instanceof Error ? error.cause : undefined;
+    let detail: string | undefined;
+    if (cause !== undefined) {
+      detail = cause instanceof Error ? cause.message : String(cause);
+    }
+    log('error', message, detail);
+    process.exit(1);
+  }
 }
 
 const migrate = () => {
@@ -450,20 +445,31 @@ const migrate = () => {
     .option('--key <path>', 'Client key file path', process.env.CH_MIGRATIONS_KEY)
     .option('--skip-db-creation', 'Skip database creation', process.env.CH_MIGRATIONS_SKIP_DB_CREATION === 'true')
     .action(async (options: CliParameters) => {
-      await migration({
-        migrations_home: options.migrationsHome,
-        host: options.host,
-        username: options.user,
-        password: options.password,
-        db_name: options.db,
-        db_engine: options.dbEngine,
-        table_engine: options.tableEngine,
-        timeout: options.timeout,
-        ca_cert: options.caCert,
-        cert: options.cert,
-        key: options.key,
-        skip_db_creation: options.skipDbCreation,
-      });
+      try {
+        await run_migration({
+          migrations_home: options.migrationsHome,
+          host: options.host,
+          username: options.user,
+          password: options.password,
+          db_name: options.db,
+          db_engine: options.dbEngine,
+          table_engine: options.tableEngine,
+          timeout: options.timeout,
+          ca_cert: options.caCert,
+          cert: options.cert,
+          key: options.key,
+          skip_db_creation: options.skipDbCreation,
+        });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        const cause = error instanceof Error ? error.cause : undefined;
+        let detail: string | undefined;
+        if (cause !== undefined) {
+          detail = cause instanceof Error ? cause.message : String(cause);
+        }
+        log('error', message, detail);
+        process.exit(1);
+      }
     });
 
   program.parse();

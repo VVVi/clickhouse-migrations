@@ -115,9 +115,9 @@ it.each(['defaults', 'timeout only', 'all options', 'skip database creation'])(
   },
 );
 
-it.each(['object', 'positional'] as const)('keeps log-and-exit behavior for %s calls', async (form) => {
+it('logs positional failures after cleaning up, then exits', async () => {
   migrationClient.command.mockRejectedValueOnce(new Error('table creation failed'));
-  await expect(run(form)).rejects.toBe(exitError);
+  await expect(run('positional')).rejects.toBe(exitError);
   expect(process.exit).toHaveBeenCalledWith(1);
   expect(console.error).toHaveBeenCalledWith(
     '\x1b[36m',
@@ -126,16 +126,156 @@ it.each(['object', 'positional'] as const)('keeps log-and-exit behavior for %s c
     "Error: can't create the _migrations table.",
     '\n\n table creation failed',
   );
-  expect(migrationClient.close).not.toHaveBeenCalled();
+  expect(migrationClient.close).toHaveBeenCalledTimes(1);
+  expect(migrationClient.close.mock.invocationCallOrder[0]).toBeLessThan(
+    jest.mocked(process.exit).mock.invocationCallOrder[0],
+  );
 });
 
-it.each(['object', 'positional'] as const)('keeps unhandled errors catchable for %s calls', async (form) => {
+it.each(['object', 'positional'] as const)('handles file-read failures through the %s API', async (form) => {
   const error = new Error('SQL file is unreadable');
   jest.spyOn(fs, 'readFileSync').mockImplementationOnce(() => {
     throw error;
   });
-  await expect(run(form)).rejects.toBe(error);
+
+  if (form === 'object') {
+    await expect(run(form)).rejects.toBe(error);
+    expect(process.exit).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
+  } else {
+    await expect(run(form)).rejects.toBe(exitError);
+    expect(process.exit).toHaveBeenCalledWith(1);
+    expect(console.error).toHaveBeenCalledWith(
+      '\x1b[36m',
+      'clickhouse-migrations :',
+      '\x1b[31m',
+      `Error: ${error.message}`,
+      '',
+    );
+  }
+  expect(migrationClient.close).toHaveBeenCalledTimes(1);
+});
+
+it.each(['ping', 'database', 'verification', 'table', 'history', 'statement', 'insert'])(
+  'rejects an object-call %s failure and closes the connection',
+  async (stage) => {
+    const error = new Error('ClickHouse request failed');
+    switch (stage) {
+      case 'ping':
+        setupClient.ping.mockRejectedValueOnce(error);
+        break;
+      case 'database':
+        setupClient.command.mockRejectedValueOnce(error);
+        break;
+      case 'verification':
+        options.skip_db_creation = true;
+        setupClient.query.mockRejectedValueOnce(error);
+        break;
+      case 'table':
+        migrationClient.command.mockRejectedValueOnce(error);
+        break;
+      case 'history':
+        migrationClient.query.mockRejectedValueOnce(error);
+        break;
+      case 'statement':
+        migrationClient.command.mockResolvedValueOnce({}).mockRejectedValueOnce(error);
+        break;
+      case 'insert':
+        migrationClient.insert.mockRejectedValueOnce(error);
+        break;
+    }
+
+    await expect(migration(options)).rejects.toMatchObject({ cause: error });
+    expect(process.exit).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
+    expect(setupClient.close).toHaveBeenCalledTimes(1);
+    expect(migrationClient.close).toHaveBeenCalledTimes(['ping', 'database', 'verification'].includes(stage) ? 0 : 1);
+    if (stage !== 'insert') expect(migrationClient.insert).not.toHaveBeenCalled();
+  },
+);
+
+it.each(['directory', 'filename', 'certificate', 'database', 'SQL', 'changed file', 'removed file'])(
+  'rejects object-call validation errors without exiting: %s',
+  async (stage) => {
+    switch (stage) {
+      case 'directory':
+        options.migrations_home = path.join(directory, 'missing');
+        break;
+      case 'filename':
+        fs.renameSync(path.join(directory, '1_init.sql'), path.join(directory, 'bad.sql'));
+        break;
+      case 'certificate':
+        options.ca_cert = path.join(directory, 'missing.pem');
+        break;
+      case 'database':
+        options.skip_db_creation = true;
+        break;
+      case 'SQL':
+        fs.writeFileSync(path.join(directory, '1_init.sql'), "SELECT 'unclosed");
+        break;
+      case 'changed file':
+      case 'removed file':
+        migrationClient.query.mockResolvedValueOnce({
+          json: async () => [
+            { version: stage === 'changed file' ? 1 : 2, migration_name: 'test.sql', checksum: 'changed' },
+          ],
+        });
+        break;
+    }
+
+    await expect(migration(options)).rejects.toBeInstanceOf(Error);
+    expect(process.exit).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
+    expect(migrationClient.insert).not.toHaveBeenCalled();
+    if (['directory', 'filename', 'certificate'].includes(stage)) {
+      expect(mockCreateClient).not.toHaveBeenCalled();
+    } else {
+      expect(setupClient.close).toHaveBeenCalledTimes(1);
+      expect(migrationClient.close).toHaveBeenCalledTimes(stage === 'database' ? 0 : 1);
+    }
+  },
+);
+
+it.each(['setup', 'migration'] as const)('preserves the failure if %s cleanup also fails', async (stage) => {
+  const client = stage === 'setup' ? setupClient : migrationClient;
+  const error = new Error('original failure');
+  client.command.mockRejectedValueOnce(error);
+  client.close.mockRejectedValueOnce(new Error('cleanup failure'));
+
+  await expect(migration(options)).rejects.toMatchObject({ cause: error });
+  expect(client.close).toHaveBeenCalledTimes(1);
   expect(process.exit).not.toHaveBeenCalled();
-  expect(console.error).not.toHaveBeenCalled();
-  expect(migrationClient.close).not.toHaveBeenCalled();
+});
+
+it.each([false, true])('rejects a setup close failure without closing twice (skip creation: %p)', async (skip) => {
+  options.skip_db_creation = skip;
+  setupClient.query.mockResolvedValueOnce({ json: async () => [{ ok: 1 }] });
+  const error = new Error('close failed');
+  setupClient.close.mockRejectedValueOnce(error);
+
+  await expect(migration(options)).rejects.toBe(error);
+  expect(setupClient.close).toHaveBeenCalledTimes(1);
+  expect(mockCreateClient).toHaveBeenCalledTimes(1);
+  expect(process.exit).not.toHaveBeenCalled();
+});
+
+it.each(['client construction', 'connection close'])('logs and exits on a positional %s failure', async (stage) => {
+  const error = new Error(stage);
+  if (stage === 'client construction') {
+    mockCreateClient.mockImplementationOnce(() => {
+      throw error;
+    });
+  } else {
+    migrationClient.close.mockRejectedValueOnce(error);
+  }
+
+  await expect(run('positional')).rejects.toBe(exitError);
+  expect(process.exit).toHaveBeenCalledWith(1);
+  expect(console.error).toHaveBeenCalledWith(
+    '\x1b[36m',
+    'clickhouse-migrations :',
+    '\x1b[31m',
+    `Error: ${error.message}`,
+    '',
+  );
 });
